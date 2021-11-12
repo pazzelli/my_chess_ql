@@ -1,0 +1,4 @@
+enum castleSide {
+    KINGSIDE,
+    QUEENSIDE
+}

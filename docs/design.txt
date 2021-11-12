@@ -1,0 +1,29 @@
+
+/interfaces
+1. UCI
+- process_command
+
+/engine
+1. EngineController
+- search_thread
+- init_position: creates board
+- start_search: need to fork into new thread, passing board as data (ownership ?).  Also tracks remaining time allowed
+and stops the existing search when time elapses or stop signal received from GUI
+- stop_search: called by process_command or by start_search when time elapses.  Need to send signal to the currently-
+searching thread (using a reference to it)
+
+
+2. MinimaxSearch
+- search_from_position(pos: Position): calls get_legal_moves(), builds tree, recurses to max depth, calls evaluate_position,
+performs minimax + alpha-beta pruning
+
+
+3. PositionEvaluator
+- evaluate_position(pos: Position) -> f32: do some magic and return a float for each position
+
+
+/game
+1. Position: stores bitboards for each piece type, lists of each piece + its location
+- from_fen(): generate position from FEN string
+- get_legal_moves()
+

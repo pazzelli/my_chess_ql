@@ -3,5 +3,28 @@
 version = 3
 
 [[package]]
+name = "array2d"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "224b2db9d3e7dd068c8b07b186076ee668ce38810d0ba12c80dacbcbb7cfc9e8"
+
+[[package]]
+name = "bitintr"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ba5a5c4df8ac8673f22698f443ef1ce3853d7f22d5a15ebf66b9a7553b173dd"
+
+[[package]]
 name = "my_chess_ql"
 version = "0.1.0"
+dependencies = [
+ "array2d",
+ "bitintr",
+ "simple-error",
+]
+
+[[package]]
+name = "simple-error"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc47a29ce97772ca5c927f75bac34866b16d64e07f330c3248e2d7226623901b"

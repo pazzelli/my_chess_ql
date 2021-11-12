@@ -1,41 +1,27 @@
-use std::io;
+// #![feature(portable_simd)]
+#![allow(dead_code, unused_imports)]
+#[path = "interfaces/uci.rs"] mod uci;
 
-fn main() {
-    for _i in 0..40 {
+use std::{io};
+// use uci::UCIInterface;
+
+fn process_ui_commands(uci_interface: &mut uci::UCIInterface) {
+    loop {
         let mut buffer = String::new();
         match io::stdin().read_line(&mut buffer) {
             Ok(_n_bytes) => {
-                match buffer.as_str().trim() {
-                    // match &buffer as &str {
-                    "uci" => {
-                        println!("id name MyChessQL");
-                        println!("id author Johnny La Rue");
-                        println!("option name Hash type spin default 1 min 1 max 128");
-                        println!("uciok");
-                    },
-
-                    "isready" => println!("readyok"),
-
-                    "stop" => (),
-
-                    "ucinewgame" => (),
-
-                    "position fen rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" => (),
-
-                    "go movetime 3000" => {
-                        println!("info currmove e7e5 currmovenumber 1");
-                        println!("bestmove e7e5");
-                    },
-
-                    _ => println!("{} unknown", buffer),
-
-                }
+                let cmd = buffer.as_str().trim();
+                if !uci_interface.process_command(&cmd) { break; }
 
                 // println!("{} bytes read", n);
                 // println!("{}", buffer);
             }
-            Err(e) => println!("Error {}", e),
+            Err(e) => println!("Error while reading from stdin: {}", e),
         }
     }
+}
 
+fn main() {
+    let mut uci = uci::UCIInterface::init_interface();
+    process_ui_commands(&mut uci);
 }

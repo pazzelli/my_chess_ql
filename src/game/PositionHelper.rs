@@ -6,6 +6,14 @@ pub struct PositionHelper {
 }
 
 impl PositionHelper {
+    pub fn rank_and_file_from_index(index: u8) -> (u8, u8) {
+        (index >> 3, index & 7)
+    }
+
+    pub fn index_from_rank_and_file(rank: u8, file: u8) -> u8 {
+        (rank << 3) + file
+    }
+
     pub fn index_from_algebraic(sq: &str) -> u8 {
         let bytes = sq.as_bytes();
         // Use ASCII subtraction to convert ranks (1-8) & files (a-h) into a bit index

@@ -1,9 +1,12 @@
 // #![feature(portable_simd)]
 #![allow(dead_code, unused_imports)]
-#[path = "interfaces/uci.rs"] mod uci;
+mod constants;
+mod engine;
+mod game;
+mod interfaces;
 
 use std::{io};
-// use uci::UCIInterface;
+use interfaces::*;
 
 fn process_ui_commands(uci_interface: &mut uci::UCIInterface) {
     loop {

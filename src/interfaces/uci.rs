@@ -1,7 +1,5 @@
-#[path = "../engine/EngineController.rs"] mod engine;
-
+use crate::engine::enginecontroller::*;
 use std::io::{Write};
-use engine::EngineController;
 
 const HELLO_STRING: &str = "id name MyChessQL";
 const AUTHOR_STRING: &str = "id author John Pazzelli";
@@ -13,7 +11,7 @@ pub struct UCIInterface { //<'a> {
 impl UCIInterface {
     pub fn init_interface() -> UCIInterface {
         UCIInterface {
-            engine: engine::EngineController::init_engine()
+            engine: EngineController::init_engine()
         }
     }
 

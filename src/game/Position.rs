@@ -1,13 +1,14 @@
-use simple_error::{bail, SimpleError};
 use array2d::Array2D;
-use crate::uci::engine::constants::{CastleSide, PlayerColour, START_POSITION};
-use crate::uci::engine::position_helper::PositionHelper;
+use simple_error::{bail, SimpleError};
+use crate::constants::*;
+use crate::game::positionhelper::PositionHelper;
 
 pub struct Position {
     // Bitboards
     pub wp: u64, pub wn: u64, pub  wb: u64, pub  wr: u64, pub  wq: u64, pub  wk: u64,
     pub bp: u64, pub  bn: u64, pub  bb: u64, pub  br: u64, pub  bq: u64, pub  bk: u64,
     pub en_passant_sq: u64,
+    // squares occupied by either side 
     pub white_occupancy: u64, pub black_occupancy: u64, pub all_occupancy: u64, pub non_occupancy: u64,
 
     pub white_to_move: bool,

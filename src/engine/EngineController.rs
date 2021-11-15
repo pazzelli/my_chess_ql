@@ -1,12 +1,4 @@
-#[path = "../constants.rs"] mod constants;
-#[path = "../game/GameMove.rs"] mod game_move;
-#[path = "../game/GameMoveList.rs"] mod game_move_list;
-#[path = "../game/Position.rs"] mod position;
-#[path = "../game/PositionHelper.rs"] mod position_helper;
-#[path = "../game/MoveGenerator.rs"] mod position_analyzer;
-
-use position::Position;
-// use position_analyzer::PositionAnalyzer;
+use crate::game::position::*;
 
 pub struct EngineController {
     // pub(crate) position: position::Position, // Temporary until MinimaxSearcher is implemented

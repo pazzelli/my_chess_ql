@@ -1,5 +1,5 @@
-use crate::uci::engine::game_move::*;
-use crate::uci::engine::constants::*;
+use crate::constants::*;
+use crate::game::gamemove::*;
 
 #[derive(Debug)]
 pub struct GameMoveList {
@@ -27,7 +27,7 @@ impl GameMoveList {
     }
 
     #[inline(always)]
-    pub fn add_move(&mut self, piece: Piece, source_square: u8, target_square: u8, is_capture: bool, promotion_piece: Piece) {
+    pub fn add_move(&mut self, piece: PieceType, source_square: u8, target_square: u8, is_capture: bool, promotion_piece: PieceType) {
         self.move_list[self.list_len] = GameMove {
             piece,
             source_square,

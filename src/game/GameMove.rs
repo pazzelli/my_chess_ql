@@ -1,25 +1,25 @@
+use crate::constants::*;
+use crate::game::position::*;
+use crate::game::positionhelper::*;
 use std::fmt::*;
-use crate::uci::engine::constants::*;
-use crate::uci::engine::position::Position;
-use crate::uci::engine::position_helper::PositionHelper;
 
 // #[derive(Clone, Copy, Debug)]
 #[derive(Clone, Copy)]
 pub struct GameMove {
-    pub piece: Piece,
+    pub piece: PieceType,
     pub source_square: u8,
     pub target_square: u8,
-    pub promotion_piece: Piece,
+    pub promotion_piece: PieceType,
     pub is_capture: bool
 }
 
 impl Default for GameMove {
     fn default() -> Self {
         GameMove {
-            piece: Piece::NONE,
+            piece: PieceType::NONE,
             source_square: 0,
             target_square: 0,
-            promotion_piece: Piece::NONE,
+            promotion_piece: PieceType::NONE,
             is_capture: false
         }
     }

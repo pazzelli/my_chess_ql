@@ -19,30 +19,36 @@ impl MoveGenerator {
         match player {
             // TODO: add remaining pieces
             PlayerColour::WHITE => {
-                Pawn::calc_attacked_squares(position, PlayerColour::WHITE) |
-                    Knight::calc_attacked_squares(position, PlayerColour::WHITE) |
-                    King::calc_attacked_squares(position, PlayerColour::WHITE)
+                Pawn::calc_attacked_squares(position, position.wp, PlayerColour::WHITE) |
+                    Knight::calc_attacked_squares(position, position.wn, PlayerColour::WHITE) |
+                    King::calc_attacked_squares(position, position.wk, PlayerColour::WHITE)
             }
             PlayerColour::BLACK => {
-                Pawn::calc_attacked_squares(position, PlayerColour::BLACK) |
-                    Knight::calc_attacked_squares(position, PlayerColour::BLACK) |
-                    King::calc_attacked_squares(position, PlayerColour::BLACK)
+                Pawn::calc_attacked_squares(position, position.bp, PlayerColour::BLACK) |
+                    Knight::calc_attacked_squares(position, position.bn, PlayerColour::BLACK) |
+                    King::calc_attacked_squares(position, position.bk, PlayerColour::BLACK)
             }
         }
     }
 
     pub fn calc_legal_moves(position: &Position, move_list: &mut GameMoveList) {
-        let enemy_attacked_squares: u64 = match position.white_to_move {
-            true => MoveGenerator::calc_all_attacked_squares(position, PlayerColour::BLACK),
-            false => MoveGenerator::calc_all_attacked_squares(position, PlayerColour::WHITE)
-        };
         // let mut move_list = GameMoveList::default();
-
         // let positiveRayAttacks: u64 = occupancy  ^ (occupancy - 2s);
-        let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, move_list, None);
-        let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, move_list, None);
-        let (_king_attacks, _king_movements) = King::calc_movements(position, move_list, Some(enemy_attacked_squares));
+        if position.white_to_move {
+            let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, PlayerColour::BLACK);
 
+            let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.wp, move_list, None);
+            let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.wn, move_list, None);
+            let (_king_attacks, _king_movements) = King::calc_movements(position, position.wk, move_list, Some(enemy_attacked_squares));
+
+        } else {
+            let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, PlayerColour::WHITE);
+
+            let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.bp, move_list, None);
+            let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.bn, move_list, None);
+            let (_king_attacks, _king_movements) = King::calc_movements(position, position.bk, move_list, Some(enemy_attacked_squares));
+
+        }
         // move_list
     }
 }
@@ -58,7 +64,7 @@ mod tests {
         // *** FYI: THIS TEST WILL FAIL UNTIL I IMPLEMENT THE SLIDING PIECE ATTACK RAYS *** //
 
         // 1. Starting position
-        let mut position = Position::from_fen(None).unwrap();
+        let position = Position::from_fen(None).unwrap();
         let white_attacks = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::WHITE);
         let black_attacks = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::BLACK);
 
@@ -70,11 +76,11 @@ mod tests {
 
     #[test]
     fn test_calc_legal_moves_benchmark() {
-        // let iterations = 40000000;   // currently about 8.5s after calculating and storing pawn moves only
-        let iterations = 100;
+        let iterations = 10000000;   // currently about 8.5s after calculating and storing pawn moves only
+        // let iterations = 100;
 
-        let mut move_list = GameMoveList::default();
         let position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
+        let mut move_list = GameMoveList::default();
         let before = Instant::now();
         for _ in 0..iterations {
             move_list.clear();
@@ -82,7 +88,7 @@ mod tests {
             // println!("{:?}", MoveGenerator::calc_legal_moves(&position).move_list);
         }
         println!("Elapsed time: {:.2?}", before.elapsed());
-        println!("{:?}", move_list);
+        // println!("{:?}", move_list);
     }
 
     // #[test]

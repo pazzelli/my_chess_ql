@@ -10,13 +10,12 @@ pub struct Position {
     pub en_passant_sq: u64,
     // squares occupied by either side 
     pub white_occupancy: u64, pub black_occupancy: u64, pub all_occupancy: u64, pub non_occupancy: u64,
+    pub friendly_occupancy: u64, pub enemy_occupancy: u64,
 
     pub white_to_move: bool,
     pub castling_rights: Array2D<bool>,
     pub fifty_move_count: u8,
     pub move_number: u16,
-
-    // pub piece_placements:
 }
 
 impl Default for Position {
@@ -25,6 +24,7 @@ impl Default for Position {
             wp: 0, wn: 0, wb: 0, wr: 0, wq: 0, wk: 0,
             bp: 0, bn: 0, bb: 0, br: 0, bq: 0, bk: 0,
             white_occupancy: 0, black_occupancy: 0, all_occupancy: 0, non_occupancy: 0,
+            friendly_occupancy: 0, enemy_occupancy: 0,
 
             en_passant_sq: 0,
             white_to_move: true,
@@ -69,9 +69,6 @@ impl Position {
             if board_setup_char as u32 > '8' as u32 { cur_bit = cur_bit.rotate_left(1); }
         }
 
-        // Set occupancies
-        position.update_occupancy();
-
         // Set position properties
         position.white_to_move = pos_str_tokens[1].to_lowercase() != "b";
         if pos_str_tokens[3].len() == 2 {
@@ -93,6 +90,9 @@ impl Position {
             }
         }
 
+        // Set occupancies
+        position.update_occupancy();
+
         Ok(position)
     }
 
@@ -111,6 +111,13 @@ impl Position {
 
         self.white_occupancy = self.wp | self.wn | self.wb | self.wr | self.wq | self.wk;
         self.black_occupancy = self.bp | self.bn | self.bb | self.br | self.bq | self.bk;
+        if self.white_to_move {
+            self.friendly_occupancy = self.white_occupancy;
+            self.enemy_occupancy = self.black_occupancy;
+        } else {
+            self.friendly_occupancy = self.black_occupancy;
+            self.enemy_occupancy = self.white_occupancy;
+        }
         self.all_occupancy = self.white_occupancy | self.black_occupancy;
         self.non_occupancy = !self.all_occupancy;
     }
@@ -136,6 +143,11 @@ mod tests {
         assert_eq!(position.wr, 0x0000000000000081);
         assert_eq!(position.wq, 0x0000000000000008);
         assert_eq!(position.wk, 0x0000000000000010);
+        
+        assert_eq!(position.white_occupancy, position.wp | position.wn | position.wb | position.wr | position.wq | position.wk);
+        assert_eq!(position.black_occupancy, position.bp | position.bn | position.bb | position.br | position.bq | position.bk);
+        assert_eq!(position.white_occupancy, position.friendly_occupancy);
+        assert_eq!(position.black_occupancy, position.enemy_occupancy);
 
         assert_eq!(position.white_to_move, true);
         assert_eq!(position.castling_rights, Array2D::filled_with(true, 2, 2));

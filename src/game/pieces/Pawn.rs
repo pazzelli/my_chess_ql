@@ -8,6 +8,7 @@ pub struct Pawn {
 }
 
 impl Pawn {
+    // PlayerColour is needed here because the direction of pawn movements differs for each side
     #[inline(always)]
     fn calc_left_right_attacks(position: &Position, player: PlayerColour) -> (u64, u64) {
         // Squares attacked to the forward-left of pawns
@@ -50,49 +51,55 @@ impl Pawn {
 
 impl Piece for Pawn {
     #[inline(always)]
-    fn calc_attacked_squares(position: &Position, player: PlayerColour) -> u64 {
+    fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: PlayerColour) -> u64 {
         let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, player);
         left_attacked | right_attacked
     }
 
     #[inline(always)]
-    fn calc_movements(position: &Position, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
+    fn calc_movements(position: &Position, _piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
         // TODO: add pinned piece support
-
-        let mut source_sq_offset_multiplier = 1i8;
-        let possible_capture_squares;
-
-        let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, if position.white_to_move {PlayerColour::WHITE} else {PlayerColour:: BLACK});
-        let forward_one_square_moves;
-        let forward_two_square_moves;
 
         if position.white_to_move {
             // Calculations for white
-            source_sq_offset_multiplier = -1;
-            possible_capture_squares = position.black_occupancy | position.en_passant_sq;
+            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, PlayerColour::WHITE);
+            let attacked_squares = left_attacked | right_attacked;
 
-            forward_one_square_moves = (position.wp << 8) & position.non_occupancy;
-            forward_two_square_moves = ((position.wp & RANK_2) << 16) & (forward_one_square_moves << 8) & position.non_occupancy;
+            let possible_capture_squares = position.black_occupancy | position.en_passant_sq;
+            let capture_squares = attacked_squares & possible_capture_squares;
+
+            Pawn::add_pawn_movement(move_list, left_attacked & capture_squares, 7, true);
+            Pawn::add_pawn_movement(move_list, right_attacked & capture_squares, 9, true);
+
+            let forward_one_square_moves = (position.wp << 8) & position.non_occupancy;
+            let forward_two_square_moves = ((position.wp & RANK_2) << 16) & (forward_one_square_moves << 8) & position.non_occupancy;
+
+            let movement_squares = capture_squares | forward_one_square_moves | forward_two_square_moves;
+            Pawn::add_pawn_movement(move_list, forward_one_square_moves, 8, false);
+            Pawn::add_pawn_movement(move_list, forward_two_square_moves, 16, false);
+
+            (attacked_squares, movement_squares)
 
         } else {
             // Calculations for black
-            possible_capture_squares = position.white_occupancy | position.en_passant_sq;
+            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, PlayerColour::BLACK);
+            let attacked_squares = left_attacked | right_attacked;
 
-            forward_one_square_moves = (position.bp >> 8) & position.non_occupancy;
-            forward_two_square_moves = ((position.bp & RANK_7) >> 16) & (forward_one_square_moves >> 8) & position.non_occupancy;
+            let possible_capture_squares = position.white_occupancy | position.en_passant_sq;
+            let capture_squares = attacked_squares & possible_capture_squares;
+
+            Pawn::add_pawn_movement(move_list, left_attacked & capture_squares, -7, true);
+            Pawn::add_pawn_movement(move_list, right_attacked & capture_squares, -9, true);
+
+            let forward_one_square_moves = (position.bp >> 8) & position.non_occupancy;
+            let forward_two_square_moves = ((position.bp & RANK_7) >> 16) & (forward_one_square_moves >> 8) & position.non_occupancy;
+
+            let movement_squares = capture_squares | forward_one_square_moves | forward_two_square_moves;
+            Pawn::add_pawn_movement(move_list, forward_one_square_moves, -8, false);
+            Pawn::add_pawn_movement(move_list, forward_two_square_moves, -16, false);
+
+            (attacked_squares, movement_squares)
         }
-
-        let attacked_squares = left_attacked | right_attacked;
-
-        let capture_squares = attacked_squares & possible_capture_squares;
-        Pawn::add_pawn_movement(move_list, left_attacked & capture_squares, source_sq_offset_multiplier * 7, true);
-        Pawn::add_pawn_movement(move_list, right_attacked & capture_squares, source_sq_offset_multiplier * 9, true);
-
-        let movement_squares = capture_squares | forward_one_square_moves | forward_two_square_moves;
-        Pawn::add_pawn_movement(move_list, forward_one_square_moves, source_sq_offset_multiplier * 8, false);
-        Pawn::add_pawn_movement(move_list, forward_two_square_moves, source_sq_offset_multiplier * 16, false);
-
-        (attacked_squares, movement_squares)
     }
 }
 
@@ -109,7 +116,7 @@ mod tests {
 
         // 1. Starting position
         let mut position = Position::from_fen(None).unwrap();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, position.wp, &mut move_list, None);
 
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "a4", "b3", "b4", "c3", "c4", "d3", "d4", "e3", "e4", "f3", "f4", "g3", "g4", "h3", "h4"]));
@@ -119,8 +126,9 @@ mod tests {
         // );
 
         position.white_to_move = false;
+        position.update_occupancy();
         move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, position.bp, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "a5", "b6", "b5", "c6", "c5", "d6", "d5", "e6", "e5", "f6", "f5", "g6", "g5", "h6", "h5"]));
         // assert_eq!(
@@ -132,7 +140,7 @@ mod tests {
         // 2. Typical position with no en-passant or pins
         let mut position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/51b1/Q4N1P/P1P2PP1/3RKB1R w KQkq - 1 2")).unwrap();
         move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position,position.wp, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["b3", "d3", "e3", "f3", "g3", "h3", "g4", "c6", "d6", "e6", "f6"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["c3", "c4", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]));
         // assert_eq!(
@@ -141,8 +149,9 @@ mod tests {
         // );
 
         position.white_to_move = false;
+        position.update_occupancy();
         move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position,position.bp, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "b5", "d5", "f5", "h5", "b4", "d4"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "a5", "b6", "b5", "c4", "d5", "e6", "h6", "h5"]));
         // assert_eq!(
@@ -154,7 +163,7 @@ mod tests {
         // 3. Position including en-passant on b6 square
         let position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
         move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, position.wp, &mut move_list, None);
         // println!("{:x}", PositionAnalyzer::calc_pawn_movements(&position));
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["b6", "c6", "d6", "e6", "f6", "a8", "c8", "e3", "f3", "g3", "h3", "g4"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "a8", "b8", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]));
@@ -174,7 +183,7 @@ mod tests {
         let before = Instant::now();
         for _ in 0..iterations {
             move_list.clear();
-            Pawn::calc_movements(&position, &mut move_list, None);
+            Pawn::calc_movements(&position, position.wp,&mut move_list, None);
         }
         println!("Elapsed time: {:.2?}", before.elapsed());
     }

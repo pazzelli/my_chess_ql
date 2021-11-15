@@ -22,17 +22,12 @@ impl Knight {
 }
 
 impl Piece for Knight {
-    fn calc_attacked_squares(position: &Position, player: PlayerColour) -> u64 {
+    fn calc_attacked_squares(_position: &Position, mut piece_pos: u64, _player: PlayerColour) -> u64 {
         let mut knight_attacks: u64 = 0;
-        let mut knight_pos = match player {
-            PlayerColour::WHITE => position.wn,
-            PlayerColour::BLACK => position.bn
-        };
-
-        while knight_pos > 0 {
-            let sq_ind: usize = knight_pos.trailing_zeros() as usize;
+        while piece_pos > 0 {
+            let sq_ind: usize = piece_pos.trailing_zeros() as usize;
             knight_attacks |= KNIGHT_ATTACKS[sq_ind];
-            knight_pos &= knight_pos - 1;
+            piece_pos &= piece_pos - 1;
         }
 
         knight_attacks
@@ -41,39 +36,24 @@ impl Piece for Knight {
     // Returns (attackedSquares, movementSquares) where attackedSquares = squares controlled by knights
     //  movementSquares = squares where knights can either move or capture a piece
     #[inline(always)]
-    fn calc_movements(position: &Position, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
+    fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
         // TODO: add pinned piece support
 
         let mut knight_attacks = 0u64;
-
-        let mut knight_pos;
-        let enemy_occupancy;
-        let friendly_occupancy;
-
-        if position.white_to_move {
-            knight_pos = position.wn;
-            enemy_occupancy = position.black_occupancy;
-            friendly_occupancy = position.white_occupancy;
-        } else {
-            knight_pos = position.bn;
-            enemy_occupancy = position.white_occupancy;
-            friendly_occupancy = position.black_occupancy;
-        }
-
-        while knight_pos > 0 {
-            let sq_ind: usize = knight_pos.trailing_zeros() as usize;
+        while piece_pos > 0 {
+            let sq_ind: usize = piece_pos.trailing_zeros() as usize;
             knight_attacks |= KNIGHT_ATTACKS[sq_ind];
 
-            let cur_knight_captures: u64 = KNIGHT_ATTACKS[sq_ind] & enemy_occupancy;
+            let cur_knight_captures: u64 = KNIGHT_ATTACKS[sq_ind] & position.enemy_occupancy;
             let cur_knight_non_captures: u64 = KNIGHT_ATTACKS[sq_ind] & position.non_occupancy;
 
             Knight::add_knight_movement(move_list, sq_ind as u8, cur_knight_captures, true);
             Knight::add_knight_movement(move_list, sq_ind as u8, cur_knight_non_captures, false);
 
-            knight_pos &= knight_pos - 1;
+            piece_pos &= piece_pos - 1;
         }
 
-        (knight_attacks, knight_attacks & !friendly_occupancy)
+        (knight_attacks, knight_attacks & !position.friendly_occupancy)
     }
 }
 
@@ -89,7 +69,7 @@ mod tests {
 
         // 1. Starting position
         let mut position = Position::from_fen(None).unwrap();
-        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, position.wn, &mut move_list, None);
 
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "c3", "d2", "e2", "f3", "h3"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "c3", "f3", "h3"]));
@@ -99,8 +79,9 @@ mod tests {
         // );
 
         position.white_to_move = false;
+        position.update_occupancy();
         move_list.clear();
-        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, position.bn, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "c6", "d7", "e7", "f6", "h6"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "c6", "f6", "h6"]));
         // assert_eq!(
@@ -111,7 +92,7 @@ mod tests {
         // 2. Typical position with no pins
         let mut position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/51b1/QN3N1P/P1P2PP1/3RKB1R w KQkq - 1 2")).unwrap();
         move_list.clear();
-        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, position.wn, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a5", "c5", "d4", "d2", "c1", "a1", "e1", "g1", "h4", "h2", "e5", "g5"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a5", "c5", "d4", "d2", "c1", "a1", "g1", "h2", "h4"]));
         // assert_eq!(
@@ -120,8 +101,9 @@ mod tests {
         // );
 
         position.white_to_move = false;
+        position.update_occupancy();
         move_list.clear();
-        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, &mut move_list, None);
+        let (attacked_squares, movement_squares) = Knight::calc_movements(&position, position.bn, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["e8", "g8", "d7", "h7", "g4", "e4", "d5", "h5"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["e8", "d7", "e4", "d5", "h5"]));
         // assert_eq!(
@@ -140,7 +122,7 @@ mod tests {
         let before = Instant::now();
         for _ in 0..iterations {
             move_list.clear();
-            Knight::calc_movements(&position, &mut move_list, None);
+            Knight::calc_movements(&position, position.wn, &mut move_list, None);
         }
         println!("Elapsed time: {:.2?}", before.elapsed());
     }

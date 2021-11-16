@@ -1,4 +1,4 @@
-mod pieces;
+pub mod pieces;
 
 pub mod gamemove;
 pub mod gamemovelist;

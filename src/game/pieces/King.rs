@@ -10,18 +10,9 @@ pub struct King {
 
 }
 
-impl King {
-    #[inline(always)]
-    fn add_king_movement(move_list: &mut GameMoveList, source_square: u8, mut target_squares: u64, is_capture: bool) {
-        while target_squares > 0 {
-            // trailing_zeros() gives square index from 0..63
-            move_list.add_move(PieceType::KING, source_square, target_squares.trailing_zeros() as u8, is_capture, PieceType::NONE);
-            target_squares &= target_squares - 1;
-        }
-    }
-}
-
 impl Piece for King {
+    fn get_piece_type() -> PieceType { PieceType::KING }
+
     fn calc_attacked_squares(_position: &Position, piece_pos: u64, _player: &PlayerColour) -> u64 {
         let sq_ind: usize = piece_pos.trailing_zeros() as usize;
         KING_ATTACKS[sq_ind]
@@ -31,6 +22,8 @@ impl Piece for King {
     //  movementSquares = squares where the king can either move or capture a piece
     #[inline(always)]
     fn calc_movements(position: &Position, piece_pos: u64, move_list: &mut GameMoveList, enemy_attacked_squares: Option<u64>) -> (u64, u64) {
+        // Cannot use the base implementation since the king also cannot move into check
+
         // Squares not controlled by the enemy side (needed because the king cannot move into check)
         let enemy_non_attacks = !(enemy_attacked_squares.unwrap());
         let sq_ind: usize = piece_pos.trailing_zeros() as usize;
@@ -39,8 +32,8 @@ impl Piece for King {
         let king_captures = king_valid_squares & position.enemy_occupancy;
         let king_non_captures = king_valid_squares & position.non_occupancy;
 
-        King::add_king_movement(move_list, sq_ind as u8, king_captures, true);
-        King::add_king_movement(move_list, sq_ind as u8, king_non_captures, false);
+        King::add_piece_movement(move_list, sq_ind as u8, king_captures, true);
+        King::add_piece_movement(move_list, sq_ind as u8, king_non_captures, false);
 
         (KING_ATTACKS[sq_ind], king_captures | king_non_captures)
     }

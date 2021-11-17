@@ -10,18 +10,9 @@ pub struct Rook {
 
 }
 
-impl Rook {
-    #[inline(always)]
-    fn add_rook_movement(move_list: &mut GameMoveList, source_square: u8, mut target_squares: u64, is_capture: bool) {
-        while target_squares > 0 {
-            // trailing_zeros() gives square index from 0..63
-            move_list.add_move(PieceType::ROOK, source_square, target_squares.trailing_zeros() as u8, is_capture, PieceType::NONE);
-            target_squares &= target_squares - 1;
-        }
-    }
-}
-
 impl Piece for Rook {
+    fn get_piece_type() -> PieceType { PieceType::ROOK }
+
     fn calc_attacked_squares(position: &Position, mut piece_pos: u64, _player: &PlayerColour) -> u64 {
         let mut rook_attacks = 0u64;
 
@@ -36,26 +27,6 @@ impl Piece for Rook {
         }
 
         rook_attacks
-    }
-
-    // Returns (attackedSquares, movementSquares) where attackedSquares = squares controlled by the rook
-    //  movementSquares = squares where the rook can either move or capture a piece
-    #[inline(always)]
-    fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
-        let attacked_squares = Rook::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK});
-
-        while piece_pos > 0 {
-            let sq_ind: usize = piece_pos.trailing_zeros() as usize;
-
-            let capture_squares = attacked_squares & position.enemy_occupancy;
-            let non_capture_squares = attacked_squares & position.non_occupancy;
-            Rook::add_rook_movement(move_list, sq_ind as u8, capture_squares, true);
-            Rook::add_rook_movement(move_list, sq_ind as u8, non_capture_squares, false);
-
-            piece_pos &= piece_pos - 1;
-        }
-
-        (attacked_squares, attacked_squares & !position.friendly_occupancy)
     }
 }
 

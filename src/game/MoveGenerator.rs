@@ -89,8 +89,8 @@ mod tests {
 
     #[test]
     fn test_calc_legal_moves_benchmark() {
-        let iterations = 10000000;   // currently about 8.5s after calculating and storing pawn moves only
-        // let iterations = 100;
+        // let iterations = 10000000;   // currently about 8.5s after calculating and storing pawn moves only
+        let iterations = 100;
 
         let position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
         let mut move_list = GameMoveList::default();

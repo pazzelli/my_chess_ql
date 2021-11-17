@@ -1,29 +1,50 @@
+use std::ops::Deref;
 use crate::constants::*;
 use crate::game::position::*;
 use crate::game::positionhelper::*;
 use crate::game::gamemovelist::*;
 
 pub trait Piece {
-    fn calc_attacked_squares(position: &Position, piece_pos: u64, player: &PlayerColour) -> u64;
+    // Each piece type must override and provide a value
+    fn get_piece_type() -> PieceType;
 
-    fn calc_movements(position: &Position, piece_pos: u64, move_list: &mut GameMoveList, enemy_attacked_squares: Option<u64>) -> (u64, u64);
-    // fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
-    //     let attacked_squares = Piece::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK});
-    //
-    //     while piece_pos > 0 {
-    //         let sq_ind: usize = piece_pos.trailing_zeros() as usize;
-    //
-    //         let capture_squares = attacked_squares & position.enemy_occupancy;
-    //         let non_capture_squares = attacked_squares & position.non_occupancy;
-    //         Bishop::add_bishop_movement(move_list, sq_ind as u8, capture_squares, true);
-    //         Bishop::add_bishop_movement(move_list, sq_ind as u8, non_capture_squares, false);
-    //
-    //         piece_pos &= piece_pos - 1;
-    //     }
-    //
-    //     (attacked_squares, attacked_squares & !position.friendly_occupancy)
-    // }
+    // Unique to each piece type
+    fn calc_attacked_squares(_position: &Position, _piece_pos: u64, _player: &PlayerColour) -> u64;
 
+    // Default implementation to add movements for the piece on the source_square to each of the target_squares
+    // set to 1 in the target_squares bitboard
+    fn add_piece_movement(move_list: &mut GameMoveList, source_square: u8, mut target_squares: u64, is_capture: bool) {
+        while target_squares > 0 {
+            // trailing_zeros() gives square index from 0..63
+            move_list.add_move(Self::get_piece_type(), source_square, target_squares.trailing_zeros() as u8, is_capture, PieceType::NONE);
+            target_squares &= target_squares - 1;
+        }
+    }
+
+    // Default implementation that uses attacked squares to determine movement squares
+    // Squares occupied by enemy pieces can be moved to (i.e. a capture) but squares with friendly pieces cannot
+    fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
+        let attacked_squares = Self::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK});
+
+        while piece_pos > 0 {
+            let sq_ind: usize = piece_pos.trailing_zeros() as usize;
+
+            let capture_squares = attacked_squares & position.enemy_occupancy;
+            let non_capture_squares = attacked_squares & position.non_occupancy;
+            Self::add_piece_movement(move_list, sq_ind as u8, capture_squares, true);
+            Self::add_piece_movement(move_list, sq_ind as u8, non_capture_squares, false);
+
+            piece_pos &= piece_pos - 1;
+        }
+
+        (attacked_squares, attacked_squares & !position.friendly_occupancy)
+    }
+
+    // Helper function to calculate attacks along a rank for rooks / queens
+    // Blocking pieces to the right have a higher bit number so can use the efficient o ^ (o - 2s) formula
+    // but pieces to the left cannot.  For now I've implemented a simple shifting loop to handle this case
+    // Since the math to do this didn't seem simple, and reusing the formula above means I'd have to swap the bits
+    // within a byte (and this might tie me too tightly to the x86 architecture if I were to use an endian swap instruction, for eg.)
     fn calc_rank_attacks(position: &Position, source_square: usize, file_index: u8, rank_mask: u64) -> u64 {
         let mut piece_pos = SINGLE_BITBOARDS[source_square];
         let occupancy = position.all_occupancy & rank_mask;
@@ -51,6 +72,10 @@ pub trait Piece {
         left_attacks | right_attacks
     }
 
+    // Calculates movements for a sliding piece along a file, diagonal or antidiagonal
+    // These can all use the o ^ (o - 2s) formula, but for pieces south or west of the source piece,
+    // the bytes need to be swapped first (this essentially reverses the bit ordering along the file
+    // or diagonal ray so that the subtraction produces the expected result)
     fn calc_file_or_diagonal_attacks(position: &Position, source_square: usize, ray_mask: u64) -> u64 {
         // Below is the Hyperbola Quintessence approach (whatever that means)
         // described here: https://www.chessprogramming.org/Hyperbola_Quintessence

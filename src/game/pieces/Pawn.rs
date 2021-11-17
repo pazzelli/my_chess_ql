@@ -50,6 +50,8 @@ impl Pawn {
 }
 
 impl Piece for Pawn {
+    fn get_piece_type() -> PieceType { PieceType::PAWN }
+
     #[inline(always)]
     fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: &PlayerColour) -> u64 {
         let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, player);
@@ -120,10 +122,6 @@ mod tests {
 
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "a4", "b3", "b4", "c3", "c4", "d3", "d4", "e3", "e4", "f3", "f4", "g3", "g4", "h3", "h4"]));
-        // assert_eq!(
-        //     format!("{:?}", &move_list.move_list[0..move_list.list_len]),
-        //     "[GameMove { piece: PAWN, source_square: \"a2\", target_square: \"a3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b2\", target_square: \"b3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"c2\", target_square: \"c3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"d2\", target_square: \"d3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e2\", target_square: \"e3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"f2\", target_square: \"f3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"g2\", target_square: \"g3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h2\", target_square: \"h3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"a2\", target_square: \"a4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b2\", target_square: \"b4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"c2\", target_square: \"c4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"d2\", target_square: \"d4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e2\", target_square: \"e4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"f2\", target_square: \"f4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"g2\", target_square: \"g4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h2\", target_square: \"h4\", promotion_piece: NONE, is_capture: false }]"
-        // );
 
         position.white_to_move = false;
         position.update_occupancy();
@@ -131,10 +129,6 @@ mod tests {
         let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, position.bp, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "a5", "b6", "b5", "c6", "c5", "d6", "d5", "e6", "e5", "f6", "f5", "g6", "g5", "h6", "h5"]));
-        // assert_eq!(
-        //     format!("{:?}", &move_list.move_list[0..move_list.list_len]),
-        //     "[GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"c7\", target_square: \"c6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e7\", target_square: \"e6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"f7\", target_square: \"f6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"g7\", target_square: \"g6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h7\", target_square: \"h6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"c7\", target_square: \"c5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e7\", target_square: \"e5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"f7\", target_square: \"f5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"g7\", target_square: \"g5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h7\", target_square: \"h5\", promotion_piece: NONE, is_capture: false }]"
-        // );
 
 
         // 2. Typical position with no en-passant or pins
@@ -143,10 +137,6 @@ mod tests {
         let (attacked_squares, movement_squares) = Pawn::calc_movements(&position,position.wp, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["b3", "d3", "e3", "f3", "g3", "h3", "g4", "c6", "d6", "e6", "f6"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["c3", "c4", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]));
-        // assert_eq!(
-        //     format!("{:?}", &move_list.move_list[0..move_list.list_len]),
-        //     "[GameMove { piece: PAWN, source_square: \"h3\", target_square: \"g4\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"d5\", target_square: \"c6\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"e5\", target_square: \"f6\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"c2\", target_square: \"c3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"g2\", target_square: \"g3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h3\", target_square: \"h4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"d5\", target_square: \"d6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e5\", target_square: \"e6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"c2\", target_square: \"c4\", promotion_piece: NONE, is_capture: false }]"
-        // );
 
         position.white_to_move = false;
         position.update_occupancy();
@@ -154,10 +144,6 @@ mod tests {
         let (attacked_squares, movement_squares) = Pawn::calc_movements(&position,position.bp, &mut move_list, None);
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "b5", "d5", "f5", "h5", "b4", "d4"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "a5", "b6", "b5", "c4", "d5", "e6", "h6", "h5"]));
-        // assert_eq!(
-        //     format!("{:?}", &move_list.move_list[0..move_list.list_len]),
-        //     "[GameMove { piece: PAWN, source_square: \"c6\", target_square: \"d5\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"c5\", target_square: \"c4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e7\", target_square: \"e6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h7\", target_square: \"h6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b5\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h7\", target_square: \"h5\", promotion_piece: NONE, is_capture: false }]"
-        // );
 
 
         // 3. Position including en-passant on b6 square
@@ -167,10 +153,6 @@ mod tests {
         // println!("{:x}", PositionAnalyzer::calc_pawn_movements(&position));
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["b6", "c6", "d6", "e6", "f6", "a8", "c8", "e3", "f3", "g3", "h3", "g4"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "a8", "b8", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]));
-        // assert_eq!(
-        //     format!("{:?}", &move_list.move_list[0..move_list.list_len]),
-        //     "[GameMove { piece: PAWN, source_square: \"h3\", target_square: \"g4\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"c5\", target_square: \"b6\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"d5\", target_square: \"c6\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"a8\", promotion_piece: KNIGHT, is_capture: true }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"a8\", promotion_piece: BISHOP, is_capture: true }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"a8\", promotion_piece: ROOK, is_capture: true }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"a8\", promotion_piece: QUEEN, is_capture: true }, GameMove { piece: PAWN, source_square: \"a5\", target_square: \"b6\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"e5\", target_square: \"f6\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"g2\", target_square: \"g3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h3\", target_square: \"h4\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"a5\", target_square: \"a6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"d5\", target_square: \"d6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e5\", target_square: \"e6\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b8\", promotion_piece: KNIGHT, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b8\", promotion_piece: BISHOP, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b8\", promotion_piece: ROOK, is_capture: false }, GameMove { piece: PAWN, source_square: \"b7\", target_square: \"b8\", promotion_piece: QUEEN, is_capture: false }]"
-        // );
     }
 
     #[test]

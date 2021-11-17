@@ -45,7 +45,7 @@ pub trait Piece {
     // but pieces to the left cannot.  For now I've implemented a simple shifting loop to handle this case
     // Since the math to do this didn't seem simple, and reusing the formula above means I'd have to swap the bits
     // within a byte (and this might tie me too tightly to the x86 architecture if I were to use an endian swap instruction, for eg.)
-    fn calc_rank_attacks(position: &Position, source_square: usize, file_index: u8, rank_mask: u64) -> u64 {
+    fn calc_rank_attacks(position: &Position, source_square: usize, _file_index: u8, rank_mask: u64) -> u64 {
         let mut piece_pos = SINGLE_BITBOARDS[source_square];
         let occupancy = position.all_occupancy & rank_mask;
         let blocker = occupancy & !piece_pos;   // o - r
@@ -62,14 +62,31 @@ pub trait Piece {
         // For left (negative rank) attacks, shift the slider bit over by one position each time
         // and check if any piece is present.  The formula above will not work in this case since
         // it only works when the blocker piece is on a square with a higher index number than the slider itself
-        let mut left_attacks: u64 = 0;
-        for _ in 0..file_index {
-            piece_pos >>= 1;
-            left_attacks |= piece_pos;
-            if piece_pos & position.non_occupancy <= 0 { break; }
-        }
+        let mut left_attacks: u64 = 0u64;
+        let non_blocker = !blocker;
+        piece_pos >>= 1;
+        left_attacks |= piece_pos;
+        piece_pos &= non_blocker;
+        piece_pos >>= 1;
+        left_attacks |= piece_pos;
+        piece_pos &= non_blocker;
+        piece_pos >>= 1;
+        left_attacks |= piece_pos;
+        piece_pos &= non_blocker;
+        piece_pos >>= 1;
+        left_attacks |= piece_pos;
+        piece_pos &= non_blocker;
+        piece_pos >>= 1;
+        left_attacks |= piece_pos;
+        piece_pos &= non_blocker;
+        piece_pos >>= 1;
+        left_attacks |= piece_pos;
+        piece_pos &= non_blocker;
+        left_attacks |= piece_pos >> 1;
+        left_attacks &= rank_mask;
 
-        left_attacks | right_attacks
+
+        left_attacks  | right_attacks
     }
 
     // Calculates movements for a sliding piece along a file, diagonal or antidiagonal

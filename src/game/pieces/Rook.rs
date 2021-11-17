@@ -22,7 +22,7 @@ impl Rook {
 }
 
 impl Piece for Rook {
-    fn calc_attacked_squares(position: &Position, mut piece_pos: u64, _player: PlayerColour) -> u64 {
+    fn calc_attacked_squares(position: &Position, mut piece_pos: u64, _player: &PlayerColour) -> u64 {
         let mut rook_attacks = 0u64;
 
         while piece_pos > 0 {
@@ -42,7 +42,7 @@ impl Piece for Rook {
     //  movementSquares = squares where the rook can either move or capture a piece
     #[inline(always)]
     fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
-        let attacked_squares = Rook::calc_attacked_squares(position, piece_pos, if position.white_to_move {PlayerColour::WHITE} else {PlayerColour::BLACK});
+        let attacked_squares = Rook::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK});
 
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;

@@ -10,7 +10,7 @@ pub struct Pawn {
 impl Pawn {
     // PlayerColour is needed here because the direction of pawn movements differs for each side
     #[inline(always)]
-    fn calc_left_right_attacks(position: &Position, player: PlayerColour) -> (u64, u64) {
+    fn calc_left_right_attacks(position: &Position, player: &PlayerColour) -> (u64, u64) {
         // Squares attacked to the forward-left of pawns
         let left_attacked;
         let right_attacked;
@@ -51,7 +51,7 @@ impl Pawn {
 
 impl Piece for Pawn {
     #[inline(always)]
-    fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: PlayerColour) -> u64 {
+    fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: &PlayerColour) -> u64 {
         let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, player);
         left_attacked | right_attacked
     }
@@ -62,7 +62,7 @@ impl Piece for Pawn {
 
         if position.white_to_move {
             // Calculations for white
-            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, PlayerColour::WHITE);
+            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, &PlayerColour::WHITE);
             let attacked_squares = left_attacked | right_attacked;
 
             let possible_capture_squares = position.black_occupancy | position.en_passant_sq;
@@ -82,7 +82,7 @@ impl Piece for Pawn {
 
         } else {
             // Calculations for black
-            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, PlayerColour::BLACK);
+            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, &PlayerColour::BLACK);
             let attacked_squares = left_attacked | right_attacked;
 
             let possible_capture_squares = position.white_occupancy | position.en_passant_sq;

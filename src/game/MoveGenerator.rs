@@ -6,6 +6,8 @@ use crate::game::pieces::pawn::*;
 use crate::game::pieces::knight::*;
 use crate::game::pieces::king::*;
 use crate::game::pieces::rook::*;
+use crate::game::pieces::bishop::*;
+use crate::game::pieces::queen::*;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
 // use core_simd::*;
@@ -15,20 +17,24 @@ pub struct MoveGenerator {
 }
 
 impl MoveGenerator {
-    pub fn calc_all_attacked_squares(position: &Position, player: PlayerColour) -> u64 {
+    pub fn calc_all_attacked_squares(position: &Position, player: &PlayerColour) -> u64 {
         match player {
             // TODO: add remaining pieces
             PlayerColour::WHITE => {
-                Pawn::calc_attacked_squares(position, position.wp, PlayerColour::WHITE) |
-                    Knight::calc_attacked_squares(position, position.wn, PlayerColour::WHITE) |
-                    King::calc_attacked_squares(position, position.wk, PlayerColour::WHITE) |
-                    Rook::calc_attacked_squares(position, position.wr, PlayerColour::WHITE)
+                Pawn::calc_attacked_squares(position, position.wp, &PlayerColour::WHITE) |
+                    Knight::calc_attacked_squares(position, position.wn, &PlayerColour::WHITE) |
+                    King::calc_attacked_squares(position, position.wk, &PlayerColour::WHITE) |
+                    Rook::calc_attacked_squares(position, position.wr, &PlayerColour::WHITE) |
+                    Bishop::calc_attacked_squares(position, position.wb, &PlayerColour::WHITE) |
+                    Queen::calc_attacked_squares(position, position.wq, &PlayerColour::WHITE)
             }
             PlayerColour::BLACK => {
-                Pawn::calc_attacked_squares(position, position.bp, PlayerColour::BLACK) |
-                    Knight::calc_attacked_squares(position, position.bn, PlayerColour::BLACK) |
-                    King::calc_attacked_squares(position, position.bk, PlayerColour::BLACK) |
-                    Rook::calc_attacked_squares(position, position.br, PlayerColour::BLACK)
+                Pawn::calc_attacked_squares(position, position.bp, &PlayerColour::BLACK) |
+                    Knight::calc_attacked_squares(position, position.bn, &PlayerColour::BLACK) |
+                    King::calc_attacked_squares(position, position.bk, &PlayerColour::BLACK) |
+                    Rook::calc_attacked_squares(position, position.br, &PlayerColour::BLACK) |
+                    Bishop::calc_attacked_squares(position, position.bb, &PlayerColour::BLACK) |
+                    Queen::calc_attacked_squares(position, position.bq, &PlayerColour::BLACK)
             }
         }
     }
@@ -37,21 +43,24 @@ impl MoveGenerator {
         // let mut move_list = GameMoveList::default();
 
         if position.white_to_move {
-            let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, PlayerColour::BLACK);
+            let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, &PlayerColour::BLACK);
 
             let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.wp, move_list, None);
             let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.wn, move_list, None);
             let (_king_attacks, _king_movements) = King::calc_movements(position, position.wk, move_list, Some(enemy_attacked_squares));
             let (_rook_attacks, _rook_movements) = Rook::calc_movements(position, position.wr, move_list, None);
+            let (_bishop_attacks, _bishop_movements) = Bishop::calc_movements(position, position.wb, move_list, None);
+            let (_queen_attacks, _queen_movements) = Queen::calc_movements(position, position.wq, move_list, None);
 
         } else {
-            let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, PlayerColour::WHITE);
+            let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, &PlayerColour::WHITE);
 
             let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.bp, move_list, None);
             let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.bn, move_list, None);
             let (_king_attacks, _king_movements) = King::calc_movements(position, position.bk, move_list, Some(enemy_attacked_squares));
             let (_rook_attacks, _rook_movements) = Rook::calc_movements(position, position.br, move_list, None);
-
+            let (_bishop_attacks, _bishop_movements) = Bishop::calc_movements(position, position.bb, move_list, None);
+            let (_queen_attacks, _queen_movements) = Queen::calc_movements(position, position.bq, move_list, None);
         }
         // move_list
     }
@@ -69,8 +78,8 @@ mod tests {
 
         // 1. Starting position
         let position = Position::from_fen(None).unwrap();
-        let white_attacks = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::WHITE);
-        let black_attacks = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::BLACK);
+        let white_attacks = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::WHITE);
+        let black_attacks = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::BLACK);
 
         assert_eq!(white_attacks, PositionHelper::bitboard_from_algebraic(vec!["b1", "c1", "d1", "e1", "f1", "g1", "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2", "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"]));
         assert_eq!(black_attacks, PositionHelper::bitboard_from_algebraic(vec!["b8", "c8", "d8", "e8", "f8", "g8", "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7", "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"]));

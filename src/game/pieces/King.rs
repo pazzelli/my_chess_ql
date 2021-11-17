@@ -22,7 +22,7 @@ impl King {
 }
 
 impl Piece for King {
-    fn calc_attacked_squares(_position: &Position, piece_pos: u64, _player: PlayerColour) -> u64 {
+    fn calc_attacked_squares(_position: &Position, piece_pos: u64, _player: &PlayerColour) -> u64 {
         let sq_ind: usize = piece_pos.trailing_zeros() as usize;
         KING_ATTACKS[sq_ind]
     }
@@ -58,7 +58,7 @@ mod tests {
 
         // 1. Starting position
         let mut position = Position::from_fen(None).unwrap();
-        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::BLACK);
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::BLACK);
         let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec![]));
@@ -66,7 +66,7 @@ mod tests {
         position.white_to_move = false;
         position.update_occupancy();
         move_list.clear();
-        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::WHITE);
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::WHITE);
         let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d8", "d7", "e7", "f7", "f8"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec![]));
@@ -75,7 +75,7 @@ mod tests {
         // 2. Position with friendly pieces in the way, one pawn to capture, one empty square that is enemy-controlled
         let mut position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5nP/P1P2pP1/3RKB1R w KQkq - 1 2")).unwrap();
         move_list.clear();
-        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::BLACK);
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::BLACK);
         let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d2", "f2"]));
@@ -83,7 +83,7 @@ mod tests {
         position.white_to_move = false;
         position.update_occupancy();
         move_list.clear();
-        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, PlayerColour::WHITE);
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::WHITE);
         let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "g7", "h7", "h8"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["h8"]));

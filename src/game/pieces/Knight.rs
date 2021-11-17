@@ -22,7 +22,7 @@ impl Knight {
 }
 
 impl Piece for Knight {
-    fn calc_attacked_squares(_position: &Position, mut piece_pos: u64, _player: PlayerColour) -> u64 {
+    fn calc_attacked_squares(_position: &Position, mut piece_pos: u64, _player: &PlayerColour) -> u64 {
         let mut knight_attacks: u64 = 0;
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;

@@ -4,9 +4,25 @@ use crate::game::positionhelper::*;
 use crate::game::gamemovelist::*;
 
 pub trait Piece {
-    fn calc_attacked_squares(position: &Position, piece_pos: u64, player: PlayerColour) -> u64;
+    fn calc_attacked_squares(position: &Position, piece_pos: u64, player: &PlayerColour) -> u64;
 
     fn calc_movements(position: &Position, piece_pos: u64, move_list: &mut GameMoveList, enemy_attacked_squares: Option<u64>) -> (u64, u64);
+    // fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
+    //     let attacked_squares = Piece::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK});
+    //
+    //     while piece_pos > 0 {
+    //         let sq_ind: usize = piece_pos.trailing_zeros() as usize;
+    //
+    //         let capture_squares = attacked_squares & position.enemy_occupancy;
+    //         let non_capture_squares = attacked_squares & position.non_occupancy;
+    //         Bishop::add_bishop_movement(move_list, sq_ind as u8, capture_squares, true);
+    //         Bishop::add_bishop_movement(move_list, sq_ind as u8, non_capture_squares, false);
+    //
+    //         piece_pos &= piece_pos - 1;
+    //     }
+    //
+    //     (attacked_squares, attacked_squares & !position.friendly_occupancy)
+    // }
 
     fn calc_rank_attacks(position: &Position, source_square: usize, file_index: u8, rank_mask: u64) -> u64 {
         let mut piece_pos = SINGLE_BITBOARDS[source_square];
@@ -47,10 +63,9 @@ pub trait Piece {
         if forward > piece_pos {
             forward -= piece_pos;   // o - 2r
             forward ^= ray_occupancy;   // o ^ (o - 2r), as expected
-            forward &= ray_mask;
         } else {
             // Sets all bits in front of the slider (on the target ray) to 1
-            forward = (!piece_pos + 1) & ray_mask - piece_pos;
+            forward = (!piece_pos + 1) - piece_pos;
         }
 
         // Ensures there is a blocker bit to borrow from (avoids overflow error)
@@ -60,11 +75,10 @@ pub trait Piece {
             reverse ^= ray_occupancy.swap_bytes();
         } else {
             // Sets all bits behind the slider (on the target ray) to 1
-            reverse = (!piece_pos_rev + 1) & ray_mask - piece_pos_rev;
+            reverse = (!piece_pos_rev + 1) - piece_pos_rev;
         }
         reverse = reverse.swap_bytes();
-        reverse &= ray_mask;
 
-        forward | reverse
+        (forward | reverse) & ray_mask
     }
 }

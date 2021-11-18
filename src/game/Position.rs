@@ -1,4 +1,4 @@
-use array2d::Array2D;
+// use array2d::Array2D;
 use simple_error::{bail, SimpleError};
 use crate::constants::*;
 use crate::game::positionhelper::PositionHelper;
@@ -7,13 +7,13 @@ pub struct Position {
     // Bitboards
     pub wp: u64, pub wn: u64, pub  wb: u64, pub  wr: u64, pub  wq: u64, pub  wk: u64,
     pub bp: u64, pub  bn: u64, pub  bb: u64, pub  br: u64, pub  bq: u64, pub  bk: u64,
-    pub en_passant_sq: u64,
+    pub en_passant_sq: u64, pub castling_rights: u64,
     // squares occupied by either side 
     pub white_occupancy: u64, pub black_occupancy: u64, pub all_occupancy: u64, pub non_occupancy: u64,
     pub friendly_occupancy: u64, pub enemy_occupancy: u64,
 
     pub white_to_move: bool,
-    pub castling_rights: Array2D<bool>,
+    pub king_in_check: bool,
     pub fifty_move_count: u8,
     pub move_number: u16,
 }
@@ -26,9 +26,9 @@ impl Default for Position {
             white_occupancy: 0, black_occupancy: 0, all_occupancy: 0, non_occupancy: 0,
             friendly_occupancy: 0, enemy_occupancy: 0,
 
-            en_passant_sq: 0,
+            en_passant_sq: 0, castling_rights: 0,
             white_to_move: true,
-            castling_rights: Array2D::filled_with(false, 2, 2),
+            king_in_check: false,
             fifty_move_count: 0,
             move_number: 0
         }
@@ -81,10 +81,10 @@ impl Position {
         if pos_str_tokens[2] != "-" {
             for castle_char in pos_str_tokens[2].chars() {
                 match castle_char {
-                    'K' => &position.castling_rights.set(PlayerColour::WHITE as usize, CastleSide::KINGSIDE as usize, true),
-                    'Q' => &position.castling_rights.set(PlayerColour::WHITE as usize, CastleSide::QUEENSIDE as usize, true),
-                    'k' => &position.castling_rights.set(PlayerColour::BLACK as usize, CastleSide::KINGSIDE as usize, true),
-                    'q' => &position.castling_rights.set(PlayerColour::BLACK as usize, CastleSide::QUEENSIDE as usize, true),
+                    'K' => position.castling_rights |= SINGLE_BITBOARDS[6],
+                    'Q' => position.castling_rights |= SINGLE_BITBOARDS[2],
+                    'k' => position.castling_rights |= SINGLE_BITBOARDS[62],
+                    'q' => position.castling_rights |= SINGLE_BITBOARDS[58],
                     _ => bail!("Invalid castling side {}", pos_str_tokens[2])
                 };
             }
@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(position.black_occupancy, position.enemy_occupancy);
 
         assert_eq!(position.white_to_move, true);
-        assert_eq!(position.castling_rights, Array2D::filled_with(true, 2, 2));
+        assert_eq!(position.castling_rights, PositionHelper::bitboard_from_algebraic(vec!["c1", "g1", "c8", "g8"]));
         assert_eq!(position.en_passant_sq, 0);
         assert_eq!(position.fifty_move_count, 0);
         assert_eq!(position.move_number, 1);
@@ -173,7 +173,7 @@ mod tests {
         assert_eq!(position.wk, PositionHelper::bitboard_from_algebraic(vec!["e1"]));
 
         assert_eq!(position.white_to_move, false);
-        assert_eq!(position.castling_rights, Array2D::from_rows(&vec![vec![true, false], vec![false, true]]));
+        assert_eq!(position.castling_rights, PositionHelper::bitboard_from_algebraic(vec!["g1", "c8"]));
         assert_eq!(position.en_passant_sq, PositionHelper::bitboard_from_algebraic(vec!["g3"]));
         assert_eq!(position.fifty_move_count, 4);
         assert_eq!(position.move_number, 13);

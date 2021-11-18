@@ -27,13 +27,14 @@ impl GameMoveList {
     }
 
     #[inline(always)]
-    pub fn add_move(&mut self, piece: PieceType, source_square: u8, target_square: u8, is_capture: bool, promotion_piece: PieceType) {
+    pub fn add_move(&mut self, piece: PieceType, source_square: u8, target_square: u8, is_capture: bool, is_castling: bool, promotion_piece: PieceType) {
         self.move_list[self.list_len] = GameMove {
             piece,
             source_square,
             target_square,
             promotion_piece,
             is_capture,
+            is_castling
         };
         self.list_len += 1;
     }

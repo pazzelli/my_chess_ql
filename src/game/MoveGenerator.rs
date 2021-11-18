@@ -39,11 +39,13 @@ impl MoveGenerator {
         }
     }
 
-    pub fn calc_legal_moves(position: &Position, move_list: &mut GameMoveList) {
+    pub fn calc_legal_moves(position: &mut Position, move_list: &mut GameMoveList) {
         // let mut move_list = GameMoveList::default();
 
         if position.white_to_move {
             let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, &PlayerColour::BLACK);
+
+            position.king_in_check = (position.wk & enemy_attacked_squares) > 0;
 
             let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.wp, move_list, None);
             let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.wn, move_list, None);
@@ -54,6 +56,8 @@ impl MoveGenerator {
 
         } else {
             let enemy_attacked_squares: u64 = MoveGenerator::calc_all_attacked_squares(position, &PlayerColour::WHITE);
+
+            position.king_in_check = (position.bk & enemy_attacked_squares) > 0;
 
             let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.bp, move_list, None);
             let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.bn, move_list, None);
@@ -74,8 +78,6 @@ mod tests {
     
     #[test]
     fn test_calc_all_attacked_squares() {
-        // *** FYI: THIS TEST WILL FAIL UNTIL I IMPLEMENT THE SLIDING PIECE ATTACK RAYS *** //
-
         // 1. Starting position
         let position = Position::from_fen(None).unwrap();
         let white_attacks = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::WHITE);
@@ -94,12 +96,12 @@ mod tests {
         // let iterations = 10000000;
         let iterations = 100;
 
-        let position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
+        let mut position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
         let mut move_list = GameMoveList::default();
         let before = Instant::now();
         for _ in 0..iterations {
             move_list.clear();
-            MoveGenerator::calc_legal_moves(&position, &mut move_list);
+            MoveGenerator::calc_legal_moves(&mut position, &mut move_list);
             // println!("{:?}", MoveGenerator::calc_legal_moves(&position).move_list);
         }
         println!("Elapsed time: {:.2?}", before.elapsed());

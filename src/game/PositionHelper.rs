@@ -56,6 +56,14 @@ impl PositionHelper {
 
         result
     }
+
+    /***
+    Turns a boolean value into a bitboard, where true gives 0xffffffffffffffff and false gives 0x0
+     */
+    #[inline(always)]
+    pub fn bool_to_bitboard(val: bool) -> u64 {
+        u64::MAX * (val as u64)
+    }
 }
 
 #[cfg(test)]

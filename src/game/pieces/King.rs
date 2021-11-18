@@ -25,17 +25,36 @@ impl Piece for King {
         // Cannot use the base implementation since the king also cannot move into check
 
         // Squares not controlled by the enemy side (needed because the king cannot move into check)
-        let enemy_non_attacks = !(enemy_attacked_squares.unwrap());
+        let enemy_attack_squares = enemy_attacked_squares.unwrap();
         let sq_ind: usize = piece_pos.trailing_zeros() as usize;
 
-        let king_valid_squares = KING_ATTACKS[sq_ind] & enemy_non_attacks;
+        // Note: position.castling_rights must be updated externally when a move is made and here is assumed
+        // to be a bitboard containing valid, remaining castling squares for both sides
+        let king_valid_squares = KING_ATTACKS[sq_ind] & !enemy_attack_squares;
         let king_captures = king_valid_squares & position.enemy_occupancy;
         let king_non_captures = king_valid_squares & position.non_occupancy;
 
-        King::add_piece_movement(move_list, sq_ind as u8, king_captures, true);
-        King::add_piece_movement(move_list, sq_ind as u8, king_non_captures, false);
+        // For castling, both squares between the king and castling square must not be occupied
+        // Also, the king must still be on e1 or e8 and not in check, and the target castling
+        // squares must not be occupied or attacked by any enemy piece
+        let castle_base = king_non_captures | (
+            position.castling_rights
+                & PositionHelper::bool_to_bitboard(sq_ind == 4 || sq_ind == 60)
+                & PositionHelper::bool_to_bitboard(!position.king_in_check)
+                & !enemy_attack_squares
+                & position.non_occupancy
+        );
 
-        (KING_ATTACKS[sq_ind], king_captures | king_non_captures)
+        // let castle_base = (king_non_captures | position.castling_rights) & PositionHelper::bool_to_bitboard(!position.king_in_check);
+        let short_castle = castle_base & (castle_base << 1);
+        let long_castle = castle_base & (castle_base >> 1);
+        let castling_squares = (short_castle | long_castle) & position.castling_rights;
+
+
+        King::add_piece_movement(move_list, sq_ind as u8, king_captures, 0, true);
+        King::add_piece_movement(move_list, sq_ind as u8, king_non_captures | castling_squares, castling_squares, false);
+
+        (KING_ATTACKS[sq_ind], king_captures | king_non_captures | castling_squares)
     }
 }
 
@@ -80,5 +99,47 @@ mod tests {
         let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "g7", "h7", "h8"]));
         assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["h8"]));
+    }
+
+    #[test]
+    fn test_castling() {
+        let mut move_list = GameMoveList::default();
+
+        // 1. Position with both sides having castling rights, black king in check, black bishop controlling
+        // one of white's kingside castling squares
+        let mut position = Position::from_fen(Some("r3k2r/8/8/8/8/3bQ3/8/R3K2R w KQkq - 1 2")).unwrap();
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::BLACK);
+        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
+        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
+        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "f2", "c1"]));
+
+        position.white_to_move = false;
+        position.king_in_check = true;
+        position.update_occupancy();
+        move_list.clear();
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::WHITE);
+        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
+        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "e7", "d7", "d8"]));
+        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d8", "d7", "f8", "f7"]));
+
+
+
+        // 2. More complicated position
+        let mut position = Position::from_fen(Some("r3k1nr/8/8/8/3bb3/8/8/R3K2R w KQkq - 1 2")).unwrap();
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::BLACK);
+        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
+        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
+        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f1", "c1"]));
+
+        position.white_to_move = false;
+        // position.king_in_check = true;
+        position.update_occupancy();
+        move_list.clear();
+        let enemy_attacked_squares = MoveGenerator::calc_all_attacked_squares(&position, &PlayerColour::WHITE);
+        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
+        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "e7", "d7", "d8"]));
+        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "e7", "d7", "d8", "c8"]));
+
+        println!("{:?}", move_list);
     }
 }

@@ -36,12 +36,12 @@ impl Pawn {
 
             let target_rank = target_square >> 3;
             if target_rank == 0 || target_rank == 7 {
-                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, PieceType::KNIGHT);
-                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, PieceType::BISHOP);
-                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, PieceType::ROOK);
-                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, PieceType::QUEEN);
+                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, false, PieceType::KNIGHT);
+                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, false,PieceType::BISHOP);
+                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, false,PieceType::ROOK);
+                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, false,PieceType::QUEEN);
             } else {
-                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, PieceType::NONE);
+                move_list.add_move(PieceType::PAWN, (target_square as i8 + source_square_offset) as u8, target_square, is_capture, false,PieceType::NONE);
             }
 
             squares &= squares - 1;
@@ -176,7 +176,7 @@ mod tests {
         Pawn::add_pawn_movement(&mut move_list, 0xff0000u64, -8, false);
         assert_eq!(
             format!("{:?}", &move_list.move_list[0..move_list.list_len]),
-            "[GameMove { piece: PAWN, source_square: \"a2\", target_square: \"a3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"b2\", target_square: \"b3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"c2\", target_square: \"c3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"d2\", target_square: \"d3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"e2\", target_square: \"e3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"f2\", target_square: \"f3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"g2\", target_square: \"g3\", promotion_piece: NONE, is_capture: false }, GameMove { piece: PAWN, source_square: \"h2\", target_square: \"h3\", promotion_piece: NONE, is_capture: false }]"
+            "[GameMove { piece: PAWN, source_square: \"a2\", target_square: \"a3\", promotion_piece: NONE, is_capture: false, is_castling: false }, GameMove { piece: PAWN, source_square: \"b2\", target_square: \"b3\", promotion_piece: NONE, is_capture: false, is_castling: false }, GameMove { piece: PAWN, source_square: \"c2\", target_square: \"c3\", promotion_piece: NONE, is_capture: false, is_castling: false }, GameMove { piece: PAWN, source_square: \"d2\", target_square: \"d3\", promotion_piece: NONE, is_capture: false, is_castling: false }, GameMove { piece: PAWN, source_square: \"e2\", target_square: \"e3\", promotion_piece: NONE, is_capture: false, is_castling: false }, GameMove { piece: PAWN, source_square: \"f2\", target_square: \"f3\", promotion_piece: NONE, is_capture: false, is_castling: false }, GameMove { piece: PAWN, source_square: \"g2\", target_square: \"g3\", promotion_piece: NONE, is_capture: false, is_castling: false }, GameMove { piece: PAWN, source_square: \"h2\", target_square: \"h3\", promotion_piece: NONE, is_capture: false, is_castling: false }]"
         );
 
 
@@ -189,7 +189,7 @@ mod tests {
         );
         assert_eq!(
             format!("{:?}", &move_list.move_list[0..move_list.list_len]),
-            "[GameMove { piece: PAWN, source_square: \"d2\", target_square: \"d3\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"g3\", target_square: \"g4\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"a5\", target_square: \"a6\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"h6\", target_square: \"h7\", promotion_piece: NONE, is_capture: true }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: KNIGHT, is_capture: true }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: BISHOP, is_capture: true }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: ROOK, is_capture: true }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: QUEEN, is_capture: true }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: KNIGHT, is_capture: true }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: BISHOP, is_capture: true }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: ROOK, is_capture: true }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: QUEEN, is_capture: true }]"
+            "[GameMove { piece: PAWN, source_square: \"d2\", target_square: \"d3\", promotion_piece: NONE, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"g3\", target_square: \"g4\", promotion_piece: NONE, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"a5\", target_square: \"a6\", promotion_piece: NONE, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"h6\", target_square: \"h7\", promotion_piece: NONE, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: KNIGHT, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: BISHOP, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: ROOK, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"a7\", target_square: \"a8\", promotion_piece: QUEEN, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: KNIGHT, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: BISHOP, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: ROOK, is_capture: true, is_castling: false }, GameMove { piece: PAWN, source_square: \"d7\", target_square: \"d8\", promotion_piece: QUEEN, is_capture: true, is_castling: false }]"
         );
     }
 }

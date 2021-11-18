@@ -10,7 +10,7 @@ edition = "2021"
 #debug = 0
 
 [dependencies]
-array2d = "0.2.1"
+#array2d = "0.2.1"
 simple-error = "0.2.3"
 #bitintr = "0.3.0"
 #rayon = "1.5.1"

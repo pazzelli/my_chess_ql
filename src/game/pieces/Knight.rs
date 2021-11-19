@@ -4,6 +4,7 @@ use crate::game::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
+use crate::game::positionanalyzer::*;
 
 
 pub struct Knight {
@@ -13,15 +14,19 @@ pub struct Knight {
 impl Piece for Knight {
     fn get_piece_type() -> PieceType { PieceType::KNIGHT }
 
-    fn calc_attacked_squares(_position: &Position, mut piece_pos: u64, _player: &PlayerColour) -> u64 {
+    fn calc_attacked_squares(_position: &Position, mut piece_pos: u64, _player: &PlayerColour, enemy_king_pos: u64) -> (u64, KingAttackRayAnalysis) {
         let mut knight_attacks: u64 = 0;
+        let mut king_check_board = 0u64;
+
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
             knight_attacks |= KNIGHT_ATTACKS[sq_ind];
+
+            king_check_board |= SINGLE_BITBOARDS[sq_ind] & PositionHelper::bool_to_bitboard(KNIGHT_ATTACKS[sq_ind] & enemy_king_pos > 0);
             piece_pos &= piece_pos - 1;
         }
 
-        knight_attacks
+        (knight_attacks, KingAttackRayAnalysis(0u64, king_check_board, (king_check_board > 0) as u8, false))
     }
 }
 

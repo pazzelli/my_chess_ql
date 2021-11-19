@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::game::gamemove::*;
 use crate::game::gamemovelist::*;
-use crate::game::movegenerator::*;
+use crate::game::positionanalyzer::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
@@ -13,20 +13,30 @@ pub struct Rook {
 impl Piece for Rook {
     fn get_piece_type() -> PieceType { PieceType::ROOK }
 
-    fn calc_attacked_squares(position: &Position, mut piece_pos: u64, _player: &PlayerColour) -> u64 {
+    fn calc_attacked_squares(position: &Position, mut piece_pos: u64, _player: &PlayerColour, enemy_king_pos: u64) -> (u64, KingAttackRayAnalysis) {
         let mut rook_attacks = 0u64;
+        let mut possible_king_attacks = KingAttackRayAnalysis::default();
 
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
-            let (rank_index, file_index) = PositionHelper::rank_and_file_from_index(sq_ind as u8);
 
-            rook_attacks |= Rook::calc_rank_attacks(&position, sq_ind, file_index, RANKS[rank_index as usize]);
-            rook_attacks |= Rook::calc_file_or_diagonal_attacks(&position, sq_ind, FILES[file_index as usize]);
+            rook_attacks |= Rook::calc_rank_attacks(&position, sq_ind, RANKS[sq_ind], enemy_king_pos);
+            rook_attacks |= Rook::calc_file_or_diagonal_attacks(&position, sq_ind, FILES[sq_ind], enemy_king_pos);
+
+            if RANKS[sq_ind] & enemy_king_pos > 0 {
+                let king_sq = enemy_king_pos.trailing_zeros() as usize;
+                possible_king_attacks += Rook::analyze_king_attack_ray(position, SINGLE_BITBOARDS[sq_ind], ATTACK_RAYS[(sq_ind << 6) + king_sq], true, enemy_king_pos);
+            }
+
+            if FILES[sq_ind] & enemy_king_pos > 0 {
+                let king_sq = enemy_king_pos.trailing_zeros() as usize;
+                possible_king_attacks += Rook::analyze_king_attack_ray(position, SINGLE_BITBOARDS[sq_ind], ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
+            }
 
             piece_pos &= piece_pos - 1;
         }
 
-        rook_attacks
+        (rook_attacks, possible_king_attacks)
     }
 }
 

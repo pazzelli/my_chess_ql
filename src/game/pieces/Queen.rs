@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::game::gamemove::*;
 use crate::game::gamemovelist::*;
-use crate::game::movegenerator::*;
+use crate::game::positionanalyzer::*;
 use crate::game::pieces::piece::*;
 use crate::game::pieces::bishop::Bishop;
 use crate::game::pieces::rook::Rook;
@@ -15,9 +15,13 @@ pub struct Queen {
 impl Piece for Queen {
     fn get_piece_type() -> PieceType { PieceType::QUEEN }
 
-    fn calc_attacked_squares(position: &Position, piece_pos: u64, player: &PlayerColour) -> u64 {
-        Bishop::calc_attacked_squares(position, piece_pos, player) |
-            Rook::calc_attacked_squares(position, piece_pos, player)
+    // TODO: come up with a more efficient implementation for queen movements (using SIMD?)
+    fn calc_attacked_squares(position: &Position, piece_pos: u64, player: &PlayerColour, enemy_king_pos: u64) -> (u64, KingAttackRayAnalysis) {
+        let (diagonal_attack_squares, mut king_attacks) = Bishop::calc_attacked_squares(position, piece_pos, player, enemy_king_pos);
+        let (non_diagonal_attack_squares, non_diagonal_king_attacks) = Rook::calc_attacked_squares(position, piece_pos, player, enemy_king_pos);
+
+        king_attacks += non_diagonal_king_attacks;
+        (diagonal_attack_squares | non_diagonal_attack_squares, king_attacks)
     }
 }
 

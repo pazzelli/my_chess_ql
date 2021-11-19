@@ -13,7 +13,7 @@ pub struct Position {
     pub friendly_occupancy: u64, pub enemy_occupancy: u64,
 
     pub white_to_move: bool,
-    pub king_in_check: bool,
+    pub king_in_check: bool, pub king_in_double_check: bool,
     pub fifty_move_count: u8,
     pub move_number: u16,
 }
@@ -28,7 +28,7 @@ impl Default for Position {
 
             en_passant_sq: 0, castling_rights: 0,
             white_to_move: true,
-            king_in_check: false,
+            king_in_check: false, king_in_double_check: false,
             fifty_move_count: 0,
             move_number: 0
         }

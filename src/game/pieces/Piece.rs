@@ -2,6 +2,7 @@ use std::ops::Deref;
 use crate::constants::*;
 use crate::game::position::*;
 use crate::game::positionhelper::*;
+use crate::game::positionanalyzer::*;
 use crate::game::gamemovelist::*;
 
 pub trait Piece {
@@ -9,7 +10,36 @@ pub trait Piece {
     fn get_piece_type() -> PieceType;
 
     // Unique to each piece type
-    fn calc_attacked_squares(_position: &Position, _piece_pos: u64, _player: &PlayerColour) -> u64;
+    fn calc_attacked_squares(_position: &Position, _piece_pos: u64, _player: &PlayerColour, enemy_king_pos: u64) -> (u64, KingAttackRayAnalysis);
+
+    fn analyze_king_attack_ray(position: &Position, attack_piece_pos: u64, attack_ray: u64, is_horizontal_ray: bool, enemy_king_pos: u64) -> KingAttackRayAnalysis {
+        // - calculate the attack ray & all occupancy. If it contains only two pieces (the attacker and the enemy king), then the king is in check
+        // - if it contains 3 pieces and the 3rd one is in the friendly occupancy, it must be pinned
+        // - if en passant is set and it’s a horizontal ray and contains exactly two pawns (any two pawn will do), and one of them is the en passant pawn (can check in either direction on the board - up or down), then the en passant capture square must be removed from the pawn attack squares (this func will return this as a Boolean)
+        // - if it contains 4 or more pieces, there is no check and no pin
+        // - this function should return a bit board of pinned pieces, the king attack ray minus the king itself if the king is in check (so other piece movements can be restricted to these squares either to capture the checking piece or to block the check), the number of checking pieces (which would always be 0 or 1 for any given piece type), a bool to indicate if the en passant capture is invalid
+        let attack_ray_occupancy = attack_ray & position.all_occupancy;
+        let piece_count_along_ray = attack_ray_occupancy.count_ones();
+        let pin_board = attack_ray_occupancy
+            & PositionHelper::bool_to_bitboard(piece_count_along_ray == 3)
+            & position.friendly_occupancy
+            & !attack_piece_pos
+            & !enemy_king_pos;
+
+        let disable_en_passant_capture = (
+            attack_ray_occupancy
+                & PositionHelper::bool_to_bitboard(piece_count_along_ray == 4)
+                & PositionHelper::bool_to_bitboard(is_horizontal_ray)
+                & (position.wp | position.bp)
+                & (position.en_passant_sq >> 8 | position.en_passant_sq << 8)
+        ) > 0;
+
+        let check_ray = attack_ray
+            & PositionHelper::bool_to_bitboard(piece_count_along_ray == 2)
+            & !enemy_king_pos;
+
+        KingAttackRayAnalysis(pin_board, check_ray, (check_ray > 0) as u8, disable_en_passant_capture)
+    }
 
     // Default implementation to add movements for the piece on the source_square to each of the target_squares
     // set to 1 in the target_squares bitboard
@@ -25,7 +55,7 @@ pub trait Piece {
     // Default implementation that uses attacked squares to determine movement squares
     // Squares occupied by enemy pieces can be moved to (i.e. a capture) but squares with friendly pieces cannot
     fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
-        let attacked_squares = Self::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK});
+        let (attacked_squares, _possible_king_attacks) = Self::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK}, 0);
 
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
@@ -46,9 +76,12 @@ pub trait Piece {
     // but pieces to the left cannot.  For now I've implemented a simple shifting loop to handle this case
     // Since the math to do this didn't seem simple, and reusing the formula above means I'd have to swap the bits
     // within a byte (and this might tie me too tightly to the x86 architecture if I were to use an endian swap instruction, for eg.)
-    fn calc_rank_attacks(position: &Position, source_square: usize, _file_index: u8, rank_mask: u64) -> u64 {
+    fn calc_rank_attacks(position: &Position, source_square: usize, rank_mask: u64, enemy_king_pos: u64) -> u64 {
         let mut piece_pos = SINGLE_BITBOARDS[source_square];
-        let occupancy = position.all_occupancy & rank_mask;
+        // The enemy king position is taken out to avoid an issue where the king is checked by a sliding piece
+        // If the king is left into the calculation, then it might try to move to the square behind itself, but
+        // still along the ray of the attacking (sliding) piece - the king is removed so it doesn't block this attack ray
+        let occupancy = position.all_occupancy & rank_mask & !enemy_king_pos;
         let blocker = occupancy & !piece_pos;   // o - r
 
         // If blocker is on a square with a higher bit index (i.e. to the right), can use the o ^ (o - 2s) formula
@@ -94,11 +127,14 @@ pub trait Piece {
     // These can all use the o ^ (o - 2s) formula, but for pieces south or west of the source piece,
     // the bytes need to be swapped first (this essentially reverses the bit ordering along the file
     // or diagonal ray so that the subtraction produces the expected result)
-    fn calc_file_or_diagonal_attacks(position: &Position, source_square: usize, ray_mask: u64) -> u64 {
+    fn calc_file_or_diagonal_attacks(position: &Position, source_square: usize, ray_mask: u64, enemy_king_pos: u64) -> u64 {
         // Below is the Hyperbola Quintessence approach (whatever that means)
         // described here: https://www.chessprogramming.org/Hyperbola_Quintessence
         let piece_pos = SINGLE_BITBOARDS[source_square];
-        let ray_occupancy = position.all_occupancy & ray_mask;
+        // The enemy king position is taken out to avoid an issue where the king is checked by a sliding piece
+        // If the king is left into the calculation, then it might try to move to the square behind itself, but
+        // still along the ray of the attacking (sliding) piece - the king is removed so it doesn't block this attack ray
+        let ray_occupancy = position.all_occupancy & ray_mask & !enemy_king_pos;
         let mut forward = ray_occupancy & !piece_pos;   // o - r
         let mut reverse = forward.swap_bytes();     // o' - r'
 

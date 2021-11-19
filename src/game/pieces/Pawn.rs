@@ -1,8 +1,9 @@
 use crate::constants::*;
 use crate::game::pieces::piece::*;
-use crate::game::position::Position;
-use crate::game::positionhelper::PositionHelper;
-use crate::game::gamemovelist::GameMoveList;
+use crate::game::position::*;
+use crate::game::positionhelper::*;
+use crate::game::positionanalyzer::*;
+use crate::game::gamemovelist::*;
 
 pub struct Pawn {
 }
@@ -10,22 +11,30 @@ pub struct Pawn {
 impl Pawn {
     // PlayerColour is needed here because the direction of pawn movements differs for each side
     #[inline(always)]
-    fn calc_left_right_attacks(position: &Position, player: &PlayerColour) -> (u64, u64) {
+    fn calc_left_right_attacks(position: &Position, player: &PlayerColour, enemy_king_pos: u64) -> (u64, u64, u64) {
         // Squares attacked to the forward-left of pawns
         let left_attacked;
         let right_attacked;
+        let mut king_check_board = 0u64;
+
         match player {
             PlayerColour::WHITE => {
                 left_attacked = (position.wp & !A_FILE) << 7;
                 right_attacked = (position.wp & !H_FILE) << 9;
+
+                king_check_board |= (enemy_king_pos >> 7) & PositionHelper::bool_to_bitboard(left_attacked & enemy_king_pos > 0);
+                king_check_board |= (enemy_king_pos >> 9) & PositionHelper::bool_to_bitboard(right_attacked & enemy_king_pos > 0);
             }
             PlayerColour::BLACK => {
                 left_attacked = (position.bp & !H_FILE) >> 7;
                 right_attacked = (position.bp & !A_FILE) >> 9;
+
+                king_check_board |= (enemy_king_pos << 7) & PositionHelper::bool_to_bitboard(left_attacked & enemy_king_pos > 0);
+                king_check_board |= (enemy_king_pos << 9) & PositionHelper::bool_to_bitboard(right_attacked & enemy_king_pos > 0);
             }
         }
 
-        (left_attacked, right_attacked)
+        (left_attacked, right_attacked, king_check_board)
     }
 
     #[inline(always)]
@@ -53,9 +62,10 @@ impl Piece for Pawn {
     fn get_piece_type() -> PieceType { PieceType::PAWN }
 
     #[inline(always)]
-    fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: &PlayerColour) -> u64 {
-        let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, player);
-        left_attacked | right_attacked
+    fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: &PlayerColour, enemy_king_pos: u64) -> (u64, KingAttackRayAnalysis) {
+        let (left_attacked, right_attacked, king_check_board) = Pawn::calc_left_right_attacks(position, player, enemy_king_pos);
+
+        (left_attacked | right_attacked, KingAttackRayAnalysis(0u64, king_check_board, (king_check_board > 0) as u8, false))
     }
 
     #[inline(always)]
@@ -64,7 +74,7 @@ impl Piece for Pawn {
 
         if position.white_to_move {
             // Calculations for white
-            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, &PlayerColour::WHITE);
+            let (left_attacked, right_attacked, _king_attacks) = Pawn::calc_left_right_attacks(position, &PlayerColour::WHITE, position.bk);
             let attacked_squares = left_attacked | right_attacked;
 
             let possible_capture_squares = position.black_occupancy | position.en_passant_sq;
@@ -84,7 +94,7 @@ impl Piece for Pawn {
 
         } else {
             // Calculations for black
-            let (left_attacked, right_attacked) = Pawn::calc_left_right_attacks(position, &PlayerColour::BLACK);
+            let (left_attacked, right_attacked, _king_attacks) = Pawn::calc_left_right_attacks(position, &PlayerColour::BLACK, position.wk);
             let attacked_squares = left_attacked | right_attacked;
 
             let possible_capture_squares = position.white_occupancy | position.en_passant_sq;

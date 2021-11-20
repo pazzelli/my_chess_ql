@@ -1,7 +1,8 @@
 use crate::constants::*;
+use crate::game::analysis::positionanalyzer::PositionAnalyzer;
+use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
 use crate::game::gamemove::*;
 use crate::game::gamemovelist::*;
-use crate::game::positionanalyzer::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
@@ -13,9 +14,9 @@ pub struct King {
 impl Piece for King {
     fn get_piece_type() -> PieceType { PieceType::KING }
 
-    fn calc_attacked_squares(_position: &Position, piece_pos: u64, _player: &PlayerColour, _enemy_king_pos: u64) -> (u64, KingAttackRayAnalysis) {
+    fn calc_attacked_squares(_position: &Position, piece_pos: u64, _player: &PlayerColour, _enemy_king_pos: u64, _king_attack_analyzer: &mut KingAttackRayAnalyzer) -> u64 {
         let sq_ind: usize = piece_pos.trailing_zeros() as usize;
-        (KING_ATTACKS[sq_ind], KingAttackRayAnalysis::default())
+        KING_ATTACKS[sq_ind]
     }
 
     // Returns (attackedSquares, movementSquares) where attackedSquares = squares controlled by the king
@@ -62,120 +63,127 @@ impl Piece for King {
 mod tests {
     use std::borrow::Borrow;
     use std::time::Instant;
+    use crate::test::legalmoveshelper::LegalMovesHelper;
+
     use super::*;
 
     #[test]
     fn test_calc_king_movements() {
-        let mut move_list = GameMoveList::default();
-
         // 1. Starting position
-        let mut position = Position::from_fen(None).unwrap();
-        let (enemy_attacked_squares, _king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::BLACK, position.wk);
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec![]));
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(None);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["d1", "d2", "e2", "f2", "f1"],
+            vec![]
+        );
 
-        position.white_to_move = false;
-        position.update_occupancy();
-        move_list.clear();
-        let (enemy_attacked_squares, _king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk);
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d8", "d7", "e7", "f7", "f8"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec![]));
+        let enemy_attacked_squares = LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["d8", "d7", "e7", "f7", "f8"],
+            vec![]
+        );
 
 
         // 2. Position with friendly pieces in the way, one pawn to capture, one empty square that is enemy-controlled
-        let mut position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5nP/P1P2pP1/3RKB1R w KQkq - 1 2")).unwrap();
-        move_list.clear();
-        let (enemy_attacked_squares, king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::BLACK, position.wk);
-        let KingAttackRayAnalysis(pinning_pieces, king_checks, num_checking_pieces, disable_en_passant) = king_attack_analysis;
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d2", "f2"]));
-        assert_eq!(pinning_pieces, 0);
-        assert_eq!(king_checks, PositionHelper::bitboard_from_algebraic(vec!["f2"]));
-        assert_eq!(num_checking_pieces, 1);
-        assert_eq!(disable_en_passant, false);
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5nP/P1P2pP1/3RKB1R w KQkq - 1 2"));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["d1", "d2", "e2", "f2", "f1"],
+            vec!["d2", "f2"]
+        );
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [0u64; 64],
+            PositionHelper::bitboard_from_algebraic(vec!["f2"]),
+            1,
+            false
+        );
 
-        position.white_to_move = false;
-        position.update_occupancy();
-        move_list.clear();
-        let (enemy_attacked_squares, king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk);
-        let KingAttackRayAnalysis(pinning_pieces, king_checks, num_checking_pieces, disable_en_passant) = king_attack_analysis;
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "g7", "h7", "h8"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["h8"]));
-        assert_eq!(pinning_pieces, 0);
-        assert_eq!(king_checks, 0);
-        assert_eq!(num_checking_pieces, 0);
-        assert_eq!(disable_en_passant, false);
+
+        let enemy_attacked_squares = LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["f8", "f7", "g7", "h7", "h8"],
+            vec!["h8"]
+        );
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [0u64; 64],
+            0,
+            0,
+            false
+        );
+
 
 
         // 3. Position with rook and enemy king where king cannot escape to a hidden square along the sliding attack ray
-        let position = Position::from_fen(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2")).unwrap();
-        move_list.clear();
-        let (enemy_attacked_squares, king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk);
-        let KingAttackRayAnalysis(pinning_pieces, king_checks, num_checking_pieces, disable_en_passant) = king_attack_analysis;
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d8", "d7", "d6", "f8", "f7", "f6", "e6", "e8"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d8", "d7", "d6", "f8", "f7", "f6"]));
-        assert_eq!(pinning_pieces, 0);
-        assert_eq!(king_checks, PositionHelper::bitboard_from_algebraic(vec!["e4", "e5", "e6"]));
-        assert_eq!(num_checking_pieces, 1);
-        assert_eq!(disable_en_passant, false);
+        let (enemy_attacked_squares, position, mut move_list, king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2"));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["d8", "d7", "d6", "f8", "f7", "f6", "e6", "e8"],
+            vec!["d8", "d7", "d6", "f8", "f7", "f6"]
+        );
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [0u64; 64],
+            PositionHelper::bitboard_from_algebraic(vec!["e4", "e5", "e6"]),
+            1,
+            false
+        );
 
         // println!("{:?}", move_list);
     }
 
     #[test]
     fn test_castling() {
-        let mut move_list = GameMoveList::default();
-
         // 1. Position with both sides having castling rights, black king in check, black bishop controlling
         // one of white's kingside castling squares
-        let mut position = Position::from_fen(Some("r3k2r/8/8/8/8/3bQ3/8/R3K2R w KQkq - 1 2")).unwrap();
-        let (enemy_attacked_squares, king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::BLACK, position.wk);
-        let KingAttackRayAnalysis(pinning_pieces, king_checks, num_checking_pieces, disable_en_passant) = king_attack_analysis;
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "f2", "c1"]));
-        assert_eq!(pinning_pieces, 0);
-        assert_eq!(king_checks, 0);
-        assert_eq!(num_checking_pieces, 0);
-        assert_eq!(disable_en_passant, false);
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("r3k2r/8/8/8/8/3bQ3/8/R3K2R w KQkq - 1 2"));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["d1", "d2", "e2", "f2", "f1"],
+            vec!["d1", "d2", "f2", "c1"]
+        );
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [0u64; 64],
+            0,
+            0,
+            false
+        );
 
-        position.white_to_move = false;
+        let enemy_attacked_squares = LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
         position.king_in_check = true;
-        position.update_occupancy();
-        move_list.clear();
-        let (enemy_attacked_squares, king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk);
-        let KingAttackRayAnalysis(pinning_pieces, king_checks, num_checking_pieces, disable_en_passant) = king_attack_analysis;
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "e7", "d7", "d8"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d8", "d7", "f8", "f7"]));
-        assert_eq!(pinning_pieces, 0);
-        assert_eq!(king_checks, PositionHelper::bitboard_from_algebraic(vec!["e3", "e4", "e5", "e6", "e7"]));
-        assert_eq!(num_checking_pieces, 1);
-        assert_eq!(disable_en_passant, false);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["f8", "f7", "e7", "d7", "d8"],
+            vec!["d8", "d7", "f8", "f7"]
+        );
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [0u64; 64],
+            PositionHelper::bitboard_from_algebraic(vec!["e3", "e4", "e5", "e6", "e7"]),
+            1,
+            false
+        );
 
 
         // 2. More complicated position
-        let mut position = Position::from_fen(Some("r3k1nr/8/8/8/3bb3/8/8/R3K2R w KQkq - 1 2")).unwrap();
-        let (enemy_attacked_squares, _king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::BLACK, position.wk);
-        // let KingAttackRayAnalysis(pinning_pieces, king_checks, num_checking_pieces, disable_en_passant) = king_attack_analysis;
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f2", "f1"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["d1", "d2", "e2", "f1", "c1"]));
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("r3k1nr/8/8/8/3bb3/8/8/R3K2R w KQkq - 1 2"));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.wk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["d1", "d2", "e2", "f2", "f1"],
+            vec!["d1", "d2", "e2", "f1", "c1"]
+        );
 
-        position.white_to_move = false;
+        let enemy_attacked_squares = LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
         // position.king_in_check = true;
-        position.update_occupancy();
-        move_list.clear();
-        let (enemy_attacked_squares, _king_attack_analysis) = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk);
-        // let KingAttackRayAnalysis(pinning_pieces, king_checks, num_checking_pieces, disable_en_passant) = king_attack_analysis;
-        let (attacked_squares, movement_squares) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "e7", "d7", "d8"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["f8", "f7", "e7", "d7", "d8", "c8"]));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares)),
+            vec!["f8", "f7", "e7", "d7", "d8"],
+            vec!["f8", "f7", "e7", "d7", "d8", "c8"]
+        );
 
         // println!("{:?}", move_list);
     }

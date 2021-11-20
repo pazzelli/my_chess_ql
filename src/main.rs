@@ -4,13 +4,14 @@ mod constants;
 mod engine;
 mod game;
 mod interfaces;
+mod test;
 
 use std::{io};
 use std::time::Instant;
 use interfaces::*;
 use constants::*;
 use game::pieces::piece::*;
-use game::positionanalyzer::*;
+use game::analysis::positionanalyzer::*;
 use game::position::*;
 use game::positionhelper::*;
 use game::gamemovelist::*;

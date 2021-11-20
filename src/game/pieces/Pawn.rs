@@ -1,9 +1,10 @@
 use crate::constants::*;
+use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
+use crate::game::analysis::positionanalyzer::*;
+use crate::game::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::*;
 use crate::game::positionhelper::*;
-use crate::game::positionanalyzer::*;
-use crate::game::gamemovelist::*;
 
 pub struct Pawn {
 }
@@ -62,10 +63,12 @@ impl Piece for Pawn {
     fn get_piece_type() -> PieceType { PieceType::PAWN }
 
     #[inline(always)]
-    fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: &PlayerColour, enemy_king_pos: u64) -> (u64, KingAttackRayAnalysis) {
+    fn calc_attacked_squares(position: &Position, mut _piece_pos: u64, player: &PlayerColour, enemy_king_pos: u64, king_attack_analyzer: &mut KingAttackRayAnalyzer) -> u64 {
         let (left_attacked, right_attacked, king_check_board) = Pawn::calc_left_right_attacks(position, player, enemy_king_pos);
 
-        (left_attacked | right_attacked, KingAttackRayAnalysis(0u64, king_check_board, (king_check_board > 0) as u8, false))
+        king_attack_analyzer.merge_check_ray(king_check_board);
+
+        left_attacked | right_attacked
     }
 
     #[inline(always)]
@@ -119,50 +122,51 @@ impl Piece for Pawn {
 mod tests {
     use std::borrow::Borrow;
     use std::time::Instant;
+    use crate::test::legalmoveshelper::LegalMovesHelper;
+
     use super::*;
 
     #[test]
     fn test_calc_pawn_movements() {
-        // TODO: add support for pinned pieces
-        let mut move_list = GameMoveList::default();
-
         // 1. Starting position
-        let mut position = Position::from_fen(None).unwrap();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, position.wp, &mut move_list, None);
+        let (_, mut position, mut move_list, _) = LegalMovesHelper::init_test_position_from_fen_str(None);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            Pawn::calc_movements(&position, position.wp, &mut move_list, None),
+            vec!["a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"],
+            vec!["a3", "a4", "b3", "b4", "c3", "c4", "d3", "d4", "e3", "e4", "f3", "f4", "g3", "g4", "h3", "h4"]
+        );
 
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a3", "a4", "b3", "b4", "c3", "c4", "d3", "d4", "e3", "e4", "f3", "f4", "g3", "g4", "h3", "h4"]));
-
-        position.white_to_move = false;
-        position.update_occupancy();
-        move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, position.bp, &mut move_list, None);
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "a5", "b6", "b5", "c6", "c5", "d6", "d5", "e6", "e5", "f6", "f5", "g6", "g5", "h6", "h5"]));
+        LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), None);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            Pawn::calc_movements(&position, position.bp, &mut move_list, None),
+            vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"],
+            vec!["a6", "a5", "b6", "b5", "c6", "c5", "d6", "d5", "e6", "e5", "f6", "f5", "g6", "g5", "h6", "h5"]
+        );
 
 
         // 2. Typical position with no en-passant or pins
-        let mut position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/51b1/Q4N1P/P1P2PP1/3RKB1R w KQkq - 1 2")).unwrap();
-        move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position,position.wp, &mut move_list, None);
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["b3", "d3", "e3", "f3", "g3", "h3", "g4", "c6", "d6", "e6", "f6"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["c3", "c4", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]));
+        let (_, mut position, mut move_list, _) = LegalMovesHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/51b1/Q4N1P/P1P2PP1/3RKB1R w KQkq - 1 2"));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            Pawn::calc_movements(&position,position.wp, &mut move_list, None),
+            vec!["b3", "d3", "e3", "f3", "g3", "h3", "g4", "c6", "d6", "e6", "f6"],
+            vec!["c3", "c4", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]
+        );
 
-        position.white_to_move = false;
-        position.update_occupancy();
-        move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position,position.bp, &mut move_list, None);
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "b5", "d5", "f5", "h5", "b4", "d4"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "a5", "b6", "b5", "c4", "d5", "e6", "h6", "h5"]));
+        LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), None);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            Pawn::calc_movements(&position,position.bp, &mut move_list, None),
+            vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "b5", "d5", "f5", "h5", "b4", "d4"],
+            vec!["a6", "a5", "b6", "b5", "c4", "d5", "e6", "h6", "h5"]
+        );
 
 
         // 3. Position including en-passant on b6 square
-        let position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
-        move_list.clear();
-        let (attacked_squares, movement_squares) = Pawn::calc_movements(&position, position.wp, &mut move_list, None);
-        // println!("{:x}", PositionAnalyzer::calc_pawn_movements(&position));
-        assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(vec!["b6", "c6", "d6", "e6", "f6", "a8", "c8", "e3", "f3", "g3", "h3", "g4"]));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(vec!["a6", "b6", "a8", "b8", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]));
+        let (_, position, mut move_list, _) = LegalMovesHelper::init_test_position_from_fen_str(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2"));
+        LegalMovesHelper::check_attack_and_movement_squares(
+            Pawn::calc_movements(&position, position.wp, &mut move_list, None),
+            vec!["b6", "c6", "d6", "e6", "f6", "a8", "c8", "e3", "f3", "g3", "h3", "g4"],
+            vec!["a6", "b6", "a8", "b8", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]
+        );
     }
 
     #[test]

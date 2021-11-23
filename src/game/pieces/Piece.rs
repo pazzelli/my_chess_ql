@@ -27,25 +27,26 @@ pub trait Piece {
 
     // Default implementation that uses attacked squares to determine movement squares
     // Squares occupied by enemy pieces can be moved to (i.e. a capture) but squares with friendly pieces cannot
-    fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>) -> (u64, u64) {
+    fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>, king_attack_analyzer: &mut KingAttackRayAnalyzer) -> (u64, u64) {
+        let attacked_squares = Self::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK}, 0, king_attack_analyzer);
+        let base_movement_squares = attacked_squares & !position.friendly_occupancy;
 
-        // TODO: pass this argument into this function an update associated calls
-        let mut king_attack_analyzer = KingAttackRayAnalyzer::default();
-
-        let attacked_squares = Self::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK}, 0, &mut king_attack_analyzer);
+        let mut movement_squares = 0u64;
 
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
+            let cur_piece_movement_squares: u64 = base_movement_squares & position.pin_ray_masks[sq_ind];
+            movement_squares |= cur_piece_movement_squares;
 
-            let capture_squares = attacked_squares & position.enemy_occupancy;
-            let non_capture_squares = attacked_squares & position.non_occupancy;
+            let capture_squares = cur_piece_movement_squares & position.enemy_occupancy;
+            let non_capture_squares = cur_piece_movement_squares & position.non_occupancy;
             Self::add_piece_movement(move_list, sq_ind as u8, capture_squares, 0, true);
             Self::add_piece_movement(move_list, sq_ind as u8, non_capture_squares,0,false);
 
             piece_pos &= piece_pos - 1;
         }
 
-        (attacked_squares, attacked_squares & !position.friendly_occupancy)
+        (attacked_squares, movement_squares)
     }
 
     // Helper function to calculate attacks along a rank for rooks / queens

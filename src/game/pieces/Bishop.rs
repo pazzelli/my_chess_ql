@@ -24,18 +24,18 @@ impl Piece for Bishop {
 
             if DIAGONALS[sq_ind] & enemy_king_pos > 0 {
                 let king_sq = enemy_king_pos.trailing_zeros() as usize;
-                king_attack_analyzer.analyze_king_attack_ray(position, sq_ind,ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
+                king_attack_analyzer.analyze_king_attack_ray(position, ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
             }
 
             if ANTI_DIAGONALS[sq_ind] & enemy_king_pos > 0 {
                 let king_sq = enemy_king_pos.trailing_zeros() as usize;
-                king_attack_analyzer.analyze_king_attack_ray(position, sq_ind, ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
+                king_attack_analyzer.analyze_king_attack_ray(position, ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
             }
 
             piece_pos &= piece_pos - 1;
         }
 
-        bishop_attacks
+        bishop_attacks & position.check_ray_mask
     }
 }
 
@@ -49,16 +49,16 @@ mod tests {
 
     #[test]
     fn test_calc_bishop_movements() {
-        let (_, mut position, mut move_list, _) = LegalMovesHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2pP1/3RKB1R w - - 1 2"));
+        let (_, mut position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/3RKB1R w - - 1 2"));
         LegalMovesHelper::check_attack_and_movement_squares(
-            Bishop::calc_movements(&position, position.wb, &mut move_list, None),
+            Bishop::calc_movements(&position, position.wb, &mut move_list, None, &mut king_attack_analyzer),
             vec!["g2", "e2", "d3", "c4", "b5", "a6", "f6", "h6", "h4", "f4", "e3", "d2", "c1"],
             vec!["e2", "d3", "c4", "b5", "a6", "f6", "h6", "h4", "f4", "e3", "d2", "c1"]
         );
 
         LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), None);
         LegalMovesHelper::check_attack_and_movement_squares(
-            Bishop::calc_movements(&position, position.bb, &mut move_list, None),
+            Bishop::calc_movements(&position, position.bb, &mut move_list, None, &mut king_attack_analyzer),
             vec!["f6", "f8", "h8", "h6"],
             vec!["h8", "h6"]
         );

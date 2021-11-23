@@ -42,12 +42,12 @@ impl PositionAnalyzer {
     }
 
     #[inline(always)]
-    fn update_position_from_king_ray_attack_analysis(position: &mut Position, king_attack_analyzer: &KingAttackRayAnalyzer) {
+    pub fn update_position_from_king_ray_attack_analysis(position: &mut Position, king_attack_analyzer: &KingAttackRayAnalyzer) {
         position.king_in_check = king_attack_analyzer.num_checking_pieces > 0;
         position.king_in_double_check = king_attack_analyzer.num_checking_pieces > 1;
         position.en_passant_sq &= PositionHelper::bool_to_bitboard(!king_attack_analyzer.disable_en_passant);
-        position.pin_rays = king_attack_analyzer.pin_rays;
-        position.check_rays = king_attack_analyzer.check_rays;
+        position.pin_ray_masks = king_attack_analyzer.pin_ray_masks;
+        position.check_ray_mask = king_attack_analyzer.check_ray_mask;
     }
 
     pub fn calc_legal_moves(position: &mut Position, move_list: &mut GameMoveList) {
@@ -58,29 +58,32 @@ impl PositionAnalyzer {
 
             PositionAnalyzer::update_position_from_king_ray_attack_analysis(position, &king_attack_analyzer);
 
-            let (_king_attacks, _king_movements) = King::calc_movements(position, position.wk, move_list, Some(enemy_attacked_squares));
+            let (_king_attacks, _king_movements) = King::calc_movements(position, position.wk, move_list, Some(enemy_attacked_squares), &mut king_attack_analyzer);
             if position.king_in_double_check { return; }
 
-            let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.wp, move_list, None);
-            let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.wn, move_list, None);
-            let (_rook_attacks, _rook_movements) = Rook::calc_movements(position, position.wr, move_list, None);
-            let (_bishop_attacks, _bishop_movements) = Bishop::calc_movements(position, position.wb, move_list, None);
-            let (_queen_attacks, _queen_movements) = Queen::calc_movements(position, position.wq, move_list, None);
+            let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.wp, move_list, None, &mut king_attack_analyzer);
+            let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.wn, move_list, None, &mut king_attack_analyzer);
+            let (_rook_attacks, _rook_movements) = Rook::calc_movements(position, position.wr, move_list, None, &mut king_attack_analyzer);
+            let (_bishop_attacks, _bishop_movements) = Bishop::calc_movements(position, position.wb, move_list, None, &mut king_attack_analyzer);
+            let (_queen_attacks, _queen_movements) = Queen::calc_movements(position, position.wq, move_list, None, &mut king_attack_analyzer);
 
         } else {
             let enemy_attacked_squares = PositionAnalyzer::calc_all_attacked_squares(position, &PlayerColour::WHITE, position.bk, &mut king_attack_analyzer);
 
             PositionAnalyzer::update_position_from_king_ray_attack_analysis(position, &king_attack_analyzer);
 
-            let (_king_attacks, _king_movements) = King::calc_movements(position, position.bk, move_list, Some(enemy_attacked_squares));
+            let (_king_attacks, _king_movements) = King::calc_movements(position, position.bk, move_list, Some(enemy_attacked_squares), &mut king_attack_analyzer);
             if position.king_in_double_check { return; }
 
-            let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.bp, move_list, None);
-            let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.bn, move_list, None);
-            let (_rook_attacks, _rook_movements) = Rook::calc_movements(position, position.br, move_list, None);
-            let (_bishop_attacks, _bishop_movements) = Bishop::calc_movements(position, position.bb, move_list, None);
-            let (_queen_attacks, _queen_movements) = Queen::calc_movements(position, position.bq, move_list, None);
+            let (_pawn_attacks, _pawn_movements) = Pawn::calc_movements(position, position.bp, move_list, None, &mut king_attack_analyzer);
+            let (_knight_attacks, _knight_movements) = Knight::calc_movements(position, position.bn, move_list, None, &mut king_attack_analyzer);
+            let (_rook_attacks, _rook_movements) = Rook::calc_movements(position, position.br, move_list, None, &mut king_attack_analyzer);
+            let (_bishop_attacks, _bishop_movements) = Bishop::calc_movements(position, position.bb, move_list, None, &mut king_attack_analyzer);
+            let (_queen_attacks, _queen_movements) = Queen::calc_movements(position, position.bq, move_list, None, &mut king_attack_analyzer);
         }
+
+        position.is_stalemate = move_list.list_len <= 0 && !position.king_in_check;
+        position.is_checkmate = move_list.list_len <= 0 && position.king_in_check;
     }
 }
 
@@ -104,8 +107,8 @@ mod tests {
 
         LegalMovesHelper::check_king_attack_analysis(
             &king_attack_analyzer,
-            [0u64; 64],
-            0,
+            [u64::MAX; 64],
+            u64::MAX,
             0,
             false
         );
@@ -131,52 +134,91 @@ mod tests {
 
     #[test]
     fn test_pins() {
-        // let mut move_list = GameMoveList::default();
-        let mut king_attack_analyzer = KingAttackRayAnalyzer::default();
-
-        // TODO: add checks to ensure pinned piece movement is restricted
-
         // 1. One pinned piece
-        let position = Position::from_fen(Some("4k3/4b3/8/8/4R3/8/8/4K3 b KQkq - 1 2")).unwrap();
-        let _white_attacks= PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk, &mut king_attack_analyzer);
-        // TODO: Fix this line below
-        // assert_eq!(king_attack_analyzer.pin_rays, PositionHelper::bitboard_from_algebraic(vec!["e4", "e5", "e6", "e7"]));
-        assert_eq!(king_attack_analyzer.check_rays, 0);
-        assert_eq!(king_attack_analyzer.num_checking_pieces, 0);
-        assert_eq!(king_attack_analyzer.disable_en_passant, false);
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("4k3/4b3/8/8/4R3/8/8/4K3 b - - 1 2"));
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            LegalMovesHelper::generate_pin_ray_board(vec![("e7", vec!["e4", "e5", "e6", "e7"])]),
+            u64::MAX,
+            0,
+            false
+        );
+        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares), &mut king_attack_analyzer);
+        let (bishop_attacks, bishop_movements) = Bishop::calc_movements(&position, position.bb, &mut move_list, None, &mut king_attack_analyzer);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            (king_attacks | bishop_attacks, king_movements | bishop_movements),
+            vec!["d8", "d7", "f8", "f7", "e7", "a3", "b4", "c5", "d6", "f6", "g5", "h4"],
+            vec!["d8", "d7", "f8", "f7"]
+        );
 
-        let _black_attacks = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::BLACK, position.wk, &mut king_attack_analyzer);
-        assert_eq!(king_attack_analyzer.pin_rays, [0u64; 64]);
-        assert_eq!(king_attack_analyzer.check_rays, 0);
-        assert_eq!(king_attack_analyzer.num_checking_pieces, 0);
-        assert_eq!(king_attack_analyzer.disable_en_passant, false);
+        LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [u64::MAX; 64],
+            u64::MAX,
+            0,
+            false
+        );
 
 
         // 2. Two pinned pieces but one can be captured
-        let position = Position::from_fen(Some("4k3/3pb3/2B5/8/4R3/8/8/4K3 b KQkq - 1 2")).unwrap();
-        let _white_attacks = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk, &mut king_attack_analyzer);
-        // TODO: Fix this line below
-        // assert_eq!(king_attack_analyzer.pin_rays, PositionHelper::bitboard_from_algebraic(vec!["c6", "d7", "e4", "e5", "e6", "e7"]));
-        assert_eq!(king_attack_analyzer.check_rays, 0);
-        assert_eq!(king_attack_analyzer.num_checking_pieces, 0);
-        assert_eq!(king_attack_analyzer.disable_en_passant, false);
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("4k3/3pb3/2B5/8/4R3/8/8/4K3 b - - 1 2"));
+        // PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk, &mut king_attack_analyzer);
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            LegalMovesHelper::generate_pin_ray_board(vec![("d7", vec!["c6", "d7"]), ("e7", vec!["e4", "e5", "e6", "e7"])]),
+            u64::MAX,
+            0,
+            false
+        );
+
+        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, None, &mut king_attack_analyzer);
+        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares), &mut king_attack_analyzer);
+        let (bishop_attacks, bishop_movements) = Bishop::calc_movements(&position, position.bb, &mut move_list, None, &mut king_attack_analyzer);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            (king_attacks | bishop_attacks | pawn_attacks, king_movements | bishop_movements | pawn_movements),
+            vec!["d8", "d7", "f8", "f7", "e7", "c6", "e6", "a3", "b4", "c5", "d6", "f6", "g5", "h4"],
+            vec!["d8", "f8", "f7", "c6"]
+        );
     }
 
     #[test]
     fn test_checks() {
-        // TODO: add checks to ensure enemy movement is restricted to deal with the check
-
         // 1. Checking piece can be captured
-        let mut king_attack_analyzer = KingAttackRayAnalyzer::default();
-        let mut position = Position::from_fen(Some("4k3/3p4/4Q3/8/4R3/8/8/4K3 b KQkq - 1 2")).unwrap();
-        let mut move_list = GameMoveList::default();
-        let _white_attacks = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk, &mut king_attack_analyzer);
-        PositionAnalyzer::calc_legal_moves(&mut position, &mut move_list);
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("4k3/3p4/4Q3/8/4R3/8/8/4K3 b - - 1 2"));
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [u64::MAX; 64],
+            PositionHelper::bitboard_from_algebraic(vec!["e6", "e7"]),
+            1,
+            false
+        );
 
-        assert_eq!(king_attack_analyzer.pin_rays, [0u64; 64]);
-        assert_eq!(king_attack_analyzer.check_rays, PositionHelper::bitboard_from_algebraic(vec!["e6", "e7"]));
-        assert_eq!(king_attack_analyzer.num_checking_pieces, 1);
-        assert_eq!(king_attack_analyzer.disable_en_passant, false);
+        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, None, &mut king_attack_analyzer);
+        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares), &mut king_attack_analyzer);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            (king_attacks | pawn_attacks, king_movements | pawn_movements),
+            vec!["d8", "d7", "f8", "f7", "e7", "e6"],
+            vec!["d8", "f8", "e6"]
+        );
+
+
+        // 2. King cannot move backwards along path of checking rook (only left or right)
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2"));
+        LegalMovesHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [u64::MAX; 64],
+            PositionHelper::bitboard_from_algebraic(vec!["e4", "e5", "e6"]),
+            1,
+            false
+        );
+
+        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, Some(enemy_attacked_squares), &mut king_attack_analyzer);
+        LegalMovesHelper::check_attack_and_movement_squares(
+            (king_attacks, king_movements),
+            vec!["d8", "d7", "d6", "e8", "e6", "f8", "f7", "f6"],
+            vec!["d8", "d7", "d6", "f8", "f7", "f6"]
+        );
     }
 
     #[test]

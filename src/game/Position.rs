@@ -8,13 +8,17 @@ pub struct Position {
     pub wp: u64, pub wn: u64, pub  wb: u64, pub  wr: u64, pub  wq: u64, pub  wk: u64,
     pub bp: u64, pub  bn: u64, pub  bb: u64, pub  br: u64, pub  bq: u64, pub  bk: u64,
     pub en_passant_sq: u64, pub castling_rights: u64,
-    pub pin_rays: [u64; 64], pub check_rays: u64,
+    // Pin rays limit piece movement (but not the squares the piece is attacking)
+    // Check ray limits both since a piece cannot attack a square outside
+    // the checking ray if its king is in check
+    pub pin_ray_masks: [u64; 64], pub check_ray_mask: u64,
     // squares occupied by either side
     pub white_occupancy: u64, pub black_occupancy: u64, pub all_occupancy: u64, pub non_occupancy: u64,
     pub friendly_occupancy: u64, pub enemy_occupancy: u64,
 
     pub white_to_move: bool,
     pub king_in_check: bool, pub king_in_double_check: bool,
+    pub is_stalemate: bool, pub is_checkmate: bool,
     pub fifty_move_count: u8,
     pub move_number: u16,
 }
@@ -24,13 +28,14 @@ impl Default for Position {
         Position {
             wp: 0, wn: 0, wb: 0, wr: 0, wq: 0, wk: 0,
             bp: 0, bn: 0, bb: 0, br: 0, bq: 0, bk: 0,
-            pin_rays: [0; 64], check_rays: 0,
+            pin_ray_masks: [u64::MAX; 64], check_ray_mask: u64::MAX,
             white_occupancy: 0, black_occupancy: 0, all_occupancy: 0, non_occupancy: 0,
             friendly_occupancy: 0, enemy_occupancy: 0,
 
             en_passant_sq: 0, castling_rights: 0,
             white_to_move: true,
             king_in_check: false, king_in_double_check: false,
+            is_stalemate: false, is_checkmate: false,
             fifty_move_count: 0,
             move_number: 0
         }

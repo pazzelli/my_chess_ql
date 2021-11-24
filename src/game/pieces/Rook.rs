@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn test_calc_rook_movements() {
         // 1. Starting position
-        let (_, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/8/2KB4/8/k7/8/Pb1r4/R2N4 w - - 1 2"));
+        let (_, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/8/2KB4/8/k7/8/Pb1r4/R2N4 w - - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Rook::calc_movements(&position, position.wr, &mut move_list, 0, &mut king_attack_analyzer),
             vec!["b1", "c1", "d1", "a2"],
@@ -67,7 +67,7 @@ mod tests {
 
 
         // 2. Position with friendly pieces in the way, one pawn to capture, one empty square that is enemy-controlled
-        let (_, mut position, mut move_list, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/3RKB1R w KQkq - 1 2"));
+        let (_, mut position, mut move_list, _, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/3RKB1R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Rook::calc_movements(&position, position.wr, &mut move_list, 0, &mut king_attack_analyzer),
             vec!["a1", "b1", "c1", "d2", "d3", "d4", "d5", "e1", "f1", "g1", "h2", "h3"],

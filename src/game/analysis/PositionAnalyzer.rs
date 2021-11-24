@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn test_calc_all_attacked_squares() {
         // 1. Starting position
-        let (_enemy_attacked_squares, position, mut _move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(None);
+        let (_enemy_attacked_squares, position, mut _move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(None);
         let white_attacks = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk, &mut king_attack_analyzer);
         let black_attacks = PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::BLACK, position.wk, &mut king_attack_analyzer);
 
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn test_pins() {
         // 1. One pinned piece
-        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("4k3/4b3/8/8/4R3/8/8/4K3 b - - 1 2"));
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("4k3/4b3/8/8/4R3/8/8/4K3 b - - 1 2"));
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
             LegalMovesTestHelper::generate_pin_ray_board(vec![("e7", vec!["e4", "e5", "e6", "e7"])]),
@@ -163,7 +163,7 @@ mod tests {
 
 
         // 2. Two pinned pieces but one can be captured
-        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("4k3/3pb3/2B5/8/4R3/8/8/4K3 b - - 1 2"));
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("4k3/3pb3/2B5/8/4R3/8/8/4K3 b - - 1 2"));
         // PositionAnalyzer::calc_all_attacked_squares(&position, &PlayerColour::WHITE, position.bk, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
@@ -186,7 +186,7 @@ mod tests {
     #[test]
     fn test_checks() {
         // 1. Checking piece can be captured
-        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("4k3/3p4/4Q3/8/4R3/8/8/4K3 b - - 1 2"));
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("4k3/3p4/4Q3/8/4R3/8/8/4K3 b - - 1 2"));
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
             [u64::MAX; 64],
@@ -205,7 +205,7 @@ mod tests {
 
 
         // 2. King cannot move backwards along path of checking rook (only left or right)
-        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2"));
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2"));
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
             [u64::MAX; 64],

@@ -36,7 +36,7 @@ impl MoveMaker {
     }
 
     pub fn make_move(&mut self, position: &mut Position, game_move: &GameMove) {
-        let mut is_pawn_move = game_move.piece == PieceType::PAWN;
+        let is_pawn_move = game_move.piece == PieceType::PAWN;
         let (captured_piece_square, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, position.en_passant_sq, &game_move);
 
         if position.white_to_move {
@@ -103,8 +103,8 @@ impl MoveMaker {
     pub fn unmake_move(&self, position: &mut Position, game_move: &GameMove) {
         position.white_to_move = !position.white_to_move;
 
-        let mut is_pawn_move = game_move.piece == PieceType::PAWN;
-        let (captured_piece_square, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, self.old_en_passant_sq, &game_move);
+        let is_pawn_move = game_move.piece == PieceType::PAWN;
+        let (_, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, self.old_en_passant_sq, &game_move);
 
         if position.white_to_move {
             match game_move.piece {
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_make_move() {
-        let (_, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
         // pxf6
        move_maker.make_move(&mut position, &GameMove {
             piece: PieceType::PAWN,
@@ -207,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_en_passant() {
-        let (_, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/5np1/2pPP1B1/8/Q5np/P1P2PP1/R3KB1R w Q c6 1 2"));
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/5np1/2pPP1B1/8/Q5np/P1P2PP1/R3KB1R w Q c6 1 2"));
         // pxc6 (en passant capture)
         move_maker.make_move(&mut position, &GameMove {
             piece: PieceType::PAWN,
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_unmake_move() {
-        let (_, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
         // pxf6
         MoveMakerTestHelper::test_unmake_move(&mut position, &mut move_maker,&GameMove {
             piece: PieceType::PAWN,

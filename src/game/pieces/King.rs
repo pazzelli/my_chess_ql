@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn test_calc_king_movements() {
         // 1. Starting position
-        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(None);
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
             vec!["d1", "d2", "e2", "f2", "f1"],
@@ -90,7 +90,7 @@ mod tests {
 
 
         // 2. Position with friendly pieces in the way, one pawn to capture, one empty square that is enemy-controlled
-        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5nP/P1P2pP1/3RKB1R w KQkq - 1 2"));
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5nP/P1P2pP1/3RKB1R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
             vec!["d1", "d2", "e2", "f2", "f1"],
@@ -122,7 +122,7 @@ mod tests {
 
 
         // 3. Position with rook and enemy king where king cannot escape to a hidden square along the sliding attack ray
-        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2"));
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
             vec!["d8", "d7", "d6", "f8", "f7", "f6", "e6", "e8"],
@@ -143,7 +143,7 @@ mod tests {
     fn test_castling() {
         // 1. Position with both sides having castling rights, black king in check, black bishop controlling
         // one of white's kingside castling squares
-        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r3k2r/8/8/8/8/3bQ3/8/R3K2R w KQkq - 1 2"));
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r3k2r/8/8/8/8/3bQ3/8/R3K2R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
             vec!["d1", "d2", "e2", "f2", "f1"],
@@ -174,7 +174,7 @@ mod tests {
 
 
         // 2. More complicated position
-        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r3k1nr/8/8/8/3bb3/8/8/R3K2R w KQkq - 1 2"));
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r3k1nr/8/8/8/3bb3/8/8/R3K2R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
             vec!["d1", "d2", "e2", "f2", "f1"],

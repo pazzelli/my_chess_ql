@@ -3,7 +3,7 @@ use std::ops::Deref;
 use crate::constants::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
 use crate::game::analysis::positionanalyzer::*;
-use crate::game::gamemovelist::*;
+use crate::game::moves::gamemovelist::*;
 use crate::game::position::*;
 use crate::game::positionhelper::*;
 
@@ -27,7 +27,7 @@ pub trait Piece {
 
     // Default implementation that uses attacked squares to determine movement squares
     // Squares occupied by enemy pieces can be moved to (i.e. a capture) but squares with friendly pieces cannot
-    fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: Option<u64>, king_attack_analyzer: &mut KingAttackRayAnalyzer) -> (u64, u64) {
+    fn calc_movements(position: &Position, mut piece_pos: u64, move_list: &mut GameMoveList, _enemy_attacked_squares: u64, king_attack_analyzer: &mut KingAttackRayAnalyzer) -> (u64, u64) {
         let attacked_squares = Self::calc_attacked_squares(position, piece_pos, if position.white_to_move {&PlayerColour::WHITE} else {&PlayerColour::BLACK}, 0, king_attack_analyzer);
         let base_movement_squares = attacked_squares & !position.friendly_occupancy;
 

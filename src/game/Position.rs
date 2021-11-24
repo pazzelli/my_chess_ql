@@ -3,6 +3,7 @@ use simple_error::{bail, SimpleError};
 use crate::constants::*;
 use crate::game::positionhelper::PositionHelper;
 
+#[derive(Clone)]
 pub struct Position {
     // Bitboards
     pub wp: u64, pub wn: u64, pub  wb: u64, pub  wr: u64, pub  wq: u64, pub  wk: u64,

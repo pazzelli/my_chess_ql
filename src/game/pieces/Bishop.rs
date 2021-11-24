@@ -1,8 +1,8 @@
 use crate::constants::*;
 use crate::game::analysis::positionanalyzer::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
-use crate::game::gamemove::*;
-use crate::game::gamemovelist::*;
+use crate::game::moves::gamemove::*;
+use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::*;
 use crate::game::positionhelper::*;
@@ -43,22 +43,22 @@ impl Piece for Bishop {
 mod tests {
     use std::borrow::Borrow;
     use std::time::Instant;
-    use crate::test::legalmoveshelper::LegalMovesHelper;
+    use crate::test::legalmoveshelper::LegalMovesTestHelper;
 
     use super::*;
 
     #[test]
     fn test_calc_bishop_movements() {
-        let (_, mut position, mut move_list, mut king_attack_analyzer) = LegalMovesHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/3RKB1R w - - 1 2"));
-        LegalMovesHelper::check_attack_and_movement_squares(
-            Bishop::calc_movements(&position, position.wb, &mut move_list, None, &mut king_attack_analyzer),
+        let (_, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/3RKB1R w - - 1 2"));
+        LegalMovesTestHelper::check_attack_and_movement_squares(
+            Bishop::calc_movements(&position, position.wb, &mut move_list, 0, &mut king_attack_analyzer),
             vec!["g2", "e2", "d3", "c4", "b5", "a6", "f6", "h6", "h4", "f4", "e3", "d2", "c1"],
             vec!["e2", "d3", "c4", "b5", "a6", "f6", "h6", "h4", "f4", "e3", "d2", "c1"]
         );
 
-        LegalMovesHelper::switch_sides(&mut position, Some(&mut move_list), None);
-        LegalMovesHelper::check_attack_and_movement_squares(
-            Bishop::calc_movements(&position, position.bb, &mut move_list, None, &mut king_attack_analyzer),
+        LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), None);
+        LegalMovesTestHelper::check_attack_and_movement_squares(
+            Bishop::calc_movements(&position, position.bb, &mut move_list, 0, &mut king_attack_analyzer),
             vec!["f6", "f8", "h8", "h6"],
             vec!["h8", "h6"]
         );

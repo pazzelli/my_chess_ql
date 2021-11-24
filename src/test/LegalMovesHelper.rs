@@ -1,22 +1,24 @@
 use crate::constants::PlayerColour;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
 use crate::game::analysis::positionanalyzer::PositionAnalyzer;
-use crate::game::gamemove::GameMove;
-use crate::game::gamemovelist::GameMoveList;
+use crate::game::moves::gamemove::GameMove;
+use crate::game::moves::gamemovelist::GameMoveList;
+use crate::game::moves::movemaker::MoveMaker;
 use crate::game::pieces::king::King;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
 
-pub struct LegalMovesHelper {
+pub struct LegalMovesTestHelper {
 
 }
 
-impl LegalMovesHelper {
-    pub fn init_test_position_from_fen_str(position_str: Option<&str>) -> (u64, Position, GameMoveList, KingAttackRayAnalyzer) {
+impl LegalMovesTestHelper {
+    pub fn init_test_position_from_fen_str(position_str: Option<&str>) -> (u64, Position, GameMoveList, KingAttackRayAnalyzer, MoveMaker) {
+        let move_maker = MoveMaker::default();
         let move_list = GameMoveList::default();
         let mut position = Position::from_fen(position_str).unwrap();
         let (enemy_attacked_squares, king_attack_analyzer) = Self::init_test_position_from_position(&mut position);
-        (enemy_attacked_squares, position, move_list, king_attack_analyzer)
+        (enemy_attacked_squares, position, move_list, king_attack_analyzer, move_maker)
     }
 
     pub fn init_test_position_from_position(position: &mut Position) -> (u64, KingAttackRayAnalyzer) {

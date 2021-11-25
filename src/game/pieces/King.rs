@@ -56,8 +56,8 @@ impl Piece for King {
         let castling_squares = (short_castle | long_castle) & position.castling_rights;
 
 
-        King::add_piece_movement(move_list, sq_ind as u8, king_captures, 0, true);
-        King::add_piece_movement(move_list, sq_ind as u8, king_non_captures | castling_squares, castling_squares, false);
+        King::add_piece_movement(move_list, sq_ind as u8, king_captures, true);
+        King::add_piece_movement(move_list, sq_ind as u8, king_non_captures | castling_squares, false);
 
         (KING_ATTACKS[sq_ind], king_captures | king_non_captures | castling_squares)
     }

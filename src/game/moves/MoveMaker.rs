@@ -4,7 +4,8 @@ use crate::game::moves::gamemove::*;
 use crate::game::positionhelper::PositionHelper;
 
 pub struct MoveMaker {
-    old_p: u64, old_n: u64, old_b: u64, old_r: u64, old_q: u64, // old_k: u64,
+    old_wp: u64, old_wn: u64, old_wb: u64, old_wr: u64, old_wq: u64, old_wk: u64,
+    old_bp: u64, old_bn: u64, old_bb: u64, old_br: u64, old_bq: u64, old_bk: u64,
     old_en_passant_sq: u64,
     old_castling_rights: u64
 }
@@ -12,7 +13,8 @@ pub struct MoveMaker {
 impl Default for MoveMaker {
     fn default() -> Self {
         Self {
-            old_p: 0, old_n: 0, old_b: 0, old_r: 0, old_q: 0, // old_k: 0,
+            old_wp: 0, old_wn: 0, old_wb: 0, old_wr: 0, old_wq: 0, old_wk: 0,
+            old_bp: 0, old_bn: 0, old_bb: 0, old_br: 0, old_bq: 0, old_bk: 0,
             old_en_passant_sq: 0,
             old_castling_rights: 0
         }
@@ -20,6 +22,24 @@ impl Default for MoveMaker {
 }
 
 impl MoveMaker {
+    #[inline(always)]
+    fn save_position_state(&mut self, position: &Position) {
+        self.old_wp = position.wp;
+        self.old_wn = position.wn;
+        self.old_wb = position.wb;
+        self.old_wr = position.wr;
+        self.old_wq = position.wq;
+        self.old_wk = position.wk;
+        self.old_bp = position.bp;
+        self.old_bn = position.bn;
+        self.old_bb = position.bb;
+        self.old_br = position.br;
+        self.old_bq = position.bq;
+        self.old_bk = position.bk;
+        self.old_en_passant_sq = position.en_passant_sq;
+        self.old_castling_rights = position.castling_rights;
+    }
+    
     #[inline(always)]
     fn calc_make_move_common_objects(white_to_move: bool, en_passant_sq: u64, game_move: &GameMove) -> (u64, u64) {
         let movement_board = SINGLE_BITBOARDS[game_move.source_square as usize] | SINGLE_BITBOARDS[game_move.target_square as usize];
@@ -37,115 +57,120 @@ impl MoveMaker {
 
     pub fn make_move(&mut self, position: &mut Position, game_move: &GameMove) {
         let is_pawn_move = game_move.piece == PieceType::PAWN;
-        let (captured_piece_square, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, position.en_passant_sq, &game_move);
+        let (target_square_board, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, position.en_passant_sq, &game_move);
+        let movement_sq_count = (game_move.target_square as i8 - game_move.source_square as i8).abs();
+        let center_movement_sq_board = SINGLE_BITBOARDS[((game_move.source_square + game_move.target_square) >> 1) as usize];
+
+        self.save_position_state(position);
+
+        // Any movement either from a corner square or to a corner square removes castling rights at that location
+        let remove_castling_rights_board = CORNERS & movement_board;
+        position.castling_rights &= !(remove_castling_rights_board >> 1 | remove_castling_rights_board << 2);
 
         if position.white_to_move {
             match game_move.piece {
                 PieceType::PAWN => position.wp ^= movement_board,
                 PieceType::KNIGHT => position.wn ^= movement_board,
-                PieceType::ROOK => position.wr ^= movement_board,
                 PieceType::BISHOP => position.wb ^= movement_board,
                 PieceType::QUEEN => position.wq ^= movement_board,
-                PieceType::KING => position.wk ^= movement_board,
+                PieceType::ROOK => position.wr ^= movement_board,
+                PieceType::KING => {
+                    position.wk ^= movement_board;
+                    // Any king move removes castling rights on both sides
+                    position.castling_rights &= !RANK_1;
+                    // Move rook to be beside the king, if the king has just moved 2 squares (i.e. castled)
+                    position.wr ^= PositionHelper::bool_to_bitboard(movement_sq_count == 2)
+                        & (center_movement_sq_board | ((target_square_board << 1 | target_square_board >> 2) & CORNERS));
+                },
                 PieceType::NONE => ()
             }
 
-            self.old_p = position.bp;
-            position.bp ^= PositionHelper::bool_to_bitboard((position.bp & captured_piece_square) > 0) & captured_piece_square;
-            self.old_n = position.bn;
-            position.bn ^= PositionHelper::bool_to_bitboard((position.bn & captured_piece_square) > 0) & captured_piece_square;
-            self.old_b = position.bb;
-            position.bb ^= PositionHelper::bool_to_bitboard((position.bb & captured_piece_square) > 0) & captured_piece_square;
-            self.old_r = position.br;
-            position.br ^= PositionHelper::bool_to_bitboard((position.br & captured_piece_square) > 0) & captured_piece_square;
-            self.old_q = position.bq;
-            position.bq ^= PositionHelper::bool_to_bitboard((position.bq & captured_piece_square) > 0) & captured_piece_square;
+            if game_move.promotion_piece != PieceType::NONE {
+                position.wp ^= target_square_board;
+                match game_move.promotion_piece {
+                    PieceType::KNIGHT => position.wn ^= target_square_board,
+                    PieceType::ROOK => position.wr ^= target_square_board,
+                    PieceType::BISHOP => position.wb ^= target_square_board,
+                    PieceType::QUEEN => position.wq ^= target_square_board,
+                    _ => ()
+                }
+            }
 
-            self.old_castling_rights = position.castling_rights;
-            // position.castling_rights &= PositionHelper::bool_to_bitboard(game_move.piece == PieceType::KING)
+            position.bp ^= PositionHelper::bool_to_bitboard((position.bp & target_square_board) > 0) & target_square_board;
+            position.bn ^= PositionHelper::bool_to_bitboard((position.bn & target_square_board) > 0) & target_square_board;
+            position.bb ^= PositionHelper::bool_to_bitboard((position.bb & target_square_board) > 0) & target_square_board;
+            position.br ^= PositionHelper::bool_to_bitboard((position.br & target_square_board) > 0) & target_square_board;
+            position.bq ^= PositionHelper::bool_to_bitboard((position.bq & target_square_board) > 0) & target_square_board;
 
         } else {
             match game_move.piece {
                 PieceType::PAWN => position.bp ^= movement_board,
                 PieceType::KNIGHT => position.bn ^= movement_board,
-                PieceType::ROOK => position.br ^= movement_board,
                 PieceType::BISHOP => position.bb ^= movement_board,
                 PieceType::QUEEN => position.bq ^= movement_board,
-                PieceType::KING => position.bk ^= movement_board,
+                PieceType::ROOK => position.br ^= movement_board,
+                PieceType::KING => {
+                    position.bk ^= movement_board;
+                    // Any king move removes castling rights on both sides
+                    position.castling_rights &= !RANK_8;
+                    // Move rook to be beside the king, if the king has just moved 2 squares (i.e. castled)
+                    position.br ^= PositionHelper::bool_to_bitboard(movement_sq_count == 2)
+                        & (center_movement_sq_board | ((target_square_board << 1 | target_square_board >> 2) & CORNERS));
+                },
                 PieceType::NONE => ()
             }
 
-            self.old_p = position.wp;
-            position.wp ^= PositionHelper::bool_to_bitboard((position.wp & captured_piece_square) > 0) & captured_piece_square;
-            self.old_n = position.wn;
-            position.wn ^= PositionHelper::bool_to_bitboard((position.wn & captured_piece_square) > 0) & captured_piece_square;
-            self.old_b = position.wb;
-            position.wb ^= PositionHelper::bool_to_bitboard((position.wb & captured_piece_square) > 0) & captured_piece_square;
-            self.old_r = position.wr;
-            position.wr ^= PositionHelper::bool_to_bitboard((position.wr & captured_piece_square) > 0) & captured_piece_square;
-            self.old_q = position.wq;
-            position.wq ^= PositionHelper::bool_to_bitboard((position.wq & captured_piece_square) > 0) & captured_piece_square;
+            if game_move.promotion_piece != PieceType::NONE {
+                position.bp ^= target_square_board;
+                match game_move.promotion_piece {
+                    PieceType::KNIGHT => position.bn ^= target_square_board,
+                    PieceType::ROOK => position.br ^= target_square_board,
+                    PieceType::BISHOP => position.bb ^= target_square_board,
+                    PieceType::QUEEN => position.bq ^= target_square_board,
+                    _ => ()
+                }
+            }
+
+            position.wp ^= PositionHelper::bool_to_bitboard((position.wp & target_square_board) > 0) & target_square_board;
+            position.wn ^= PositionHelper::bool_to_bitboard((position.wn & target_square_board) > 0) & target_square_board;
+            position.wb ^= PositionHelper::bool_to_bitboard((position.wb & target_square_board) > 0) & target_square_board;
+            position.wr ^= PositionHelper::bool_to_bitboard((position.wr & target_square_board) > 0) & target_square_board;
+            position.wq ^= PositionHelper::bool_to_bitboard((position.wq & target_square_board) > 0) & target_square_board;
 
             position.move_number += 1;
         }
 
-        self.old_en_passant_sq = position.en_passant_sq;
-        position.en_passant_sq = PositionHelper::bool_to_bitboard(is_pawn_move && (game_move.target_square as i8 - game_move.source_square as i8).abs() == 16)
-            & SINGLE_BITBOARDS[((game_move.source_square + game_move.target_square) >> 1) as usize];
+        position.en_passant_sq = PositionHelper::bool_to_bitboard(is_pawn_move && movement_sq_count == 16)
+            & center_movement_sq_board;
 
         position.fifty_move_count += !(is_pawn_move || game_move.is_capture) as u8;
         position.white_to_move = !position.white_to_move;
         position.update_occupancy();
-
-        // TODO: need to handle: castling (move rook beside king, updating castling rights), promotions (adding new piece to board)
     }
 
     pub fn unmake_move(&self, position: &mut Position, game_move: &GameMove) {
+        // Do this first so that the white vs. black logic below aligns with that above
         position.white_to_move = !position.white_to_move;
-
         let is_pawn_move = game_move.piece == PieceType::PAWN;
-        let (_, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, self.old_en_passant_sq, &game_move);
 
-        if position.white_to_move {
-            match game_move.piece {
-                PieceType::PAWN => position.wp ^= movement_board,
-                PieceType::KNIGHT => position.wn ^= movement_board,
-                PieceType::ROOK => position.wr ^= movement_board,
-                PieceType::BISHOP => position.wb ^= movement_board,
-                PieceType::QUEEN => position.wq ^= movement_board,
-                PieceType::KING => position.wk ^= movement_board,
-                PieceType::NONE => ()
-            }
+        position.wp = self.old_wp;
+        position.wn = self.old_wn;
+        position.wb = self.old_wb;
+        position.wr = self.old_wr;
+        position.wq = self.old_wq;
+        position.wk = self.old_wk;
 
-            position.bp = self.old_p;
-            position.bn = self.old_n;
-            position.bb = self.old_b;
-            position.br = self.old_r;
-            position.bq = self.old_q;
-
-        } else {
-            match game_move.piece {
-                PieceType::PAWN => position.bp ^= movement_board,
-                PieceType::KNIGHT => position.bn ^= movement_board,
-                PieceType::ROOK => position.br ^= movement_board,
-                PieceType::BISHOP => position.bb ^= movement_board,
-                PieceType::QUEEN => position.bq ^= movement_board,
-                PieceType::KING => position.bk ^= movement_board,
-                PieceType::NONE => ()
-            }
-
-            position.wp = self.old_p;
-            position.wn = self.old_n;
-            position.wb = self.old_b;
-            position.wr = self.old_r;
-            position.wq = self.old_q;
-
-            position.move_number -= 1;
-        }
+        position.bp = self.old_bp;
+        position.bn = self.old_bn;
+        position.bb = self.old_bb;
+        position.br = self.old_br;
+        position.bq = self.old_bq;
+        position.bk = self.old_bk;
 
         position.en_passant_sq = self.old_en_passant_sq;
         position.castling_rights = self.old_castling_rights;
 
+        position.move_number -= (!position.white_to_move) as u16;
         position.fifty_move_count -= !(is_pawn_move || game_move.is_capture) as u8;
         position.update_occupancy();
     }
@@ -169,8 +194,7 @@ mod tests {
             source_square: 36, // e5
             target_square: 45, // f6
             promotion_piece: PieceType::NONE,
-            is_capture: true,
-            is_castling: false
+            is_capture: true
         });
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bn, vec!["g3"]),
@@ -183,8 +207,7 @@ mod tests {
             source_square: 56, // a8
             target_square: 58, // c8
             promotion_piece: PieceType::NONE,
-            is_capture: false,
-            is_castling: false
+            is_capture: false
         });
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.br, vec!["c8", "f8"]),
@@ -196,8 +219,7 @@ mod tests {
             source_square: 16, // a3
             target_square: 34, // c5
             promotion_piece: PieceType::NONE,
-            is_capture: true,
-            is_castling: false
+            is_capture: true
         });
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wq, vec!["c5"]),
@@ -214,8 +236,7 @@ mod tests {
             source_square: 35, // d5
             target_square: 42, // c6
             promotion_piece: PieceType::NONE,
-            is_capture: true,
-            is_castling: false
+            is_capture: true
         });
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["a7", "b7", "e7", "f7", "g6", "h7", "h3"]),
@@ -229,8 +250,7 @@ mod tests {
             source_square: 48, // a7
             target_square: 32, // a5
             promotion_piece: PieceType::NONE,
-            is_capture: false,
-            is_castling: false
+            is_capture: false
         });
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["a5", "b7", "e7", "f7", "g6", "h7", "h3"]),
@@ -243,13 +263,101 @@ mod tests {
             source_square: 10, // c2
             target_square: 26, // c4
             promotion_piece: PieceType::NONE,
-            is_capture: false,
-            is_castling: false
+            is_capture: false
         });
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wp, vec!["a2", "c4", "f2", "g2", "c6", "e5"]),
             (position.en_passant_sq, vec!["c3"])
         ]);
+    }
+
+    #[test]
+    fn test_promotion() {
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
+        // c8=N
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::PAWN,
+            source_square: 50, // c7
+            target_square: 58, // c8
+            promotion_piece: PieceType::KNIGHT,
+            is_capture: false
+        });
+        MoveMakerTestHelper::check_make_move_result(vec![
+            (position.wp, vec!["a2", "c2", "f2", "g2", "d5", "e5"]),
+            (position.wn, vec!["c8"]),
+            (position.bq, vec!["d8"])
+        ]);
+
+
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
+        // cxd8=Q
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::PAWN,
+            source_square: 50, // c7
+            target_square: 59, // d8
+            promotion_piece: PieceType::QUEEN,
+            is_capture: true
+        });
+        MoveMakerTestHelper::check_make_move_result(vec![
+            (position.wp, vec!["a2", "c2", "f2", "g2", "d5", "e5"]),
+            (position.wq, vec!["a3", "d8"]),
+            (position.bq, vec![])
+        ]);
+    }
+
+    #[test]
+    fn test_castling() {
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3K2R w KQ - 1 2"));
+        // 1. o-o-o
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::KING,
+            source_square: 4, // e1
+            target_square: 2, // c1
+            promotion_piece: PieceType::NONE,
+            is_capture: false
+        });
+        MoveMakerTestHelper::check_make_move_result(vec![
+            (position.wk, vec!["c1"]),
+            (position.wr, vec!["d1", "h1"]),
+        ]);
+        assert_eq!(position.castling_rights, 0);
+
+
+        // 2. Capture one of the rooks
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3K2R b KQ - 1 2"));
+        // Nxh1 (for black)
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::KNIGHT,
+            source_square: 22, // g3
+            target_square: 7, // h1
+            promotion_piece: PieceType::NONE,
+            is_capture: true
+        });
+        MoveMakerTestHelper::check_make_move_result(vec![
+            (position.wk, vec!["e1"]),
+            (position.wr, vec!["a1"]),
+            (position.bn, vec!["f6", "h1"]),
+        ]);
+        // Only kingside castling should be removed
+        assert_eq!(position.castling_rights, PositionHelper::bitboard_from_algebraic(vec!["c1"]));
+
+
+        // 3. Move queenside rook and ensure that only queenside castling is removed
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3K2R w KQ - 1 2"));
+        // Nxh1 (for black)
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::ROOK,
+            source_square: 0, // a1
+            target_square: 1, // b1
+            promotion_piece: PieceType::NONE,
+            is_capture: false
+        });
+        MoveMakerTestHelper::check_make_move_result(vec![
+            (position.wk, vec!["e1"]),
+            (position.wr, vec!["b1", "h1"]),
+        ]);
+        // Only queenside castling should be removed
+        assert_eq!(position.castling_rights, PositionHelper::bitboard_from_algebraic(vec!["g1"]));
     }
 
     #[test]
@@ -261,8 +369,7 @@ mod tests {
             source_square: 36, // e5
             target_square: 45, // f6
             promotion_piece: PieceType::NONE,
-            is_capture: true,
-            is_castling: false
+            is_capture: true
         });
 
         // Qxc5
@@ -271,8 +378,7 @@ mod tests {
             source_square: 16, // a3
             target_square: 34, // c5
             promotion_piece: PieceType::NONE,
-            is_capture: true,
-            is_castling: false
+            is_capture: true
         });
 
         // d6
@@ -281,8 +387,7 @@ mod tests {
             source_square: 5, // f1
             target_square: 12, // e2
             promotion_piece: PieceType::NONE,
-            is_capture: false,
-            is_castling: false
+            is_capture: false
         });
 
         // o-o-o
@@ -291,8 +396,17 @@ mod tests {
             source_square: 4, // e1
             target_square: 2, // c1
             promotion_piece: PieceType::NONE,
-            is_capture: false,
-            is_castling: true
+            is_capture: false
+        });
+
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
+        // cxd8=Q
+        MoveMakerTestHelper::test_unmake_move(&mut position, &mut move_maker, &GameMove {
+            piece: PieceType::PAWN,
+            source_square: 50, // c7
+            target_square: 59, // d8
+            promotion_piece: PieceType::QUEEN,
+            is_capture: true
         });
     }
 }

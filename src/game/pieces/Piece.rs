@@ -16,11 +16,11 @@ pub trait Piece {
 
     // Default implementation to add movements for the piece on the source_square to each of the target_squares
     // set to 1 in the target_squares bitboard
-    fn add_piece_movement(move_list: &mut GameMoveList, source_square: u8, mut target_squares: u64, castling_squares: u64, is_capture: bool) {
+    fn add_piece_movement(move_list: &mut GameMoveList, source_square: u8, mut target_squares: u64, is_capture: bool) {
         while target_squares > 0 {
             // trailing_zeros() gives square index from 0..63
             let target_square_index = target_squares.trailing_zeros();
-            move_list.add_move(Self::get_piece_type(), source_square, target_square_index as u8, is_capture, (SINGLE_BITBOARDS[target_square_index as usize] & castling_squares) > 0, PieceType::NONE);
+            move_list.add_move(Self::get_piece_type(), source_square, target_square_index as u8, is_capture, PieceType::NONE);
             target_squares &= target_squares - 1;
         }
     }
@@ -40,8 +40,8 @@ pub trait Piece {
 
             let capture_squares = cur_piece_movement_squares & position.enemy_occupancy;
             let non_capture_squares = cur_piece_movement_squares & position.non_occupancy;
-            Self::add_piece_movement(move_list, sq_ind as u8, capture_squares, 0, true);
-            Self::add_piece_movement(move_list, sq_ind as u8, non_capture_squares,0,false);
+            Self::add_piece_movement(move_list, sq_ind as u8, capture_squares, true);
+            Self::add_piece_movement(move_list, sq_ind as u8, non_capture_squares, false);
 
             piece_pos &= piece_pos - 1;
         }

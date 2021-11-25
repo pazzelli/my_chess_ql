@@ -10,8 +10,7 @@ pub struct GameMove {
     pub source_square: u8,
     pub target_square: u8,
     pub promotion_piece: PieceType,
-    pub is_capture: bool,
-    pub is_castling: bool
+    pub is_capture: bool
 }
 
 impl Default for GameMove {
@@ -21,8 +20,7 @@ impl Default for GameMove {
             source_square: 0,
             target_square: 0,
             promotion_piece: PieceType::NONE,
-            is_capture: false,
-            is_castling: false
+            is_capture: false
         }
     }
 }
@@ -35,7 +33,6 @@ impl Debug for GameMove {
             .field("target_square", &PositionHelper::algebraic_from_index(self.target_square))
             .field("promotion_piece", &self.promotion_piece)
             .field("is_capture", &self.is_capture)
-            .field("is_castling", &self.is_castling)
             .finish()
     }
 }

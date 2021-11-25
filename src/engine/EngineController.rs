@@ -12,7 +12,7 @@ impl EngineController {
     }
 
     pub fn init_position(&mut self, fen_str: Option<&str>) -> Option<Position> {
-        let position = Position::from_fen(fen_str).unwrap();
+        let position = Position::from_fen(fen_str, false).unwrap();
 
         // PositionAnalyzer.
         Some(position)

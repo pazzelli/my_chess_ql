@@ -44,7 +44,7 @@ impl Default for Position {
 }
 
 impl Position {
-    pub fn from_fen(fen_str: Option<&str>) -> Result<Position, SimpleError> {
+    pub fn from_fen(fen_str: Option<&str>, print_pos: bool) -> Result<Position, SimpleError> {
         // Default to starting board position
         let pos_str: &str = fen_str.unwrap_or(START_POSITION);
         let pos_str_tokens: Vec<&str> = pos_str.split(' ').collect();
@@ -101,6 +101,8 @@ impl Position {
         // Set occupancies
         position.update_occupancy();
 
+        if print_pos { PositionHelper::print_position(&position); }
+
         Ok(position)
     }
 
@@ -138,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_from_fen_start_pos() {
-        let position = Position::from_fen(None).unwrap();
+        let position = Position::from_fen(None, true).unwrap();
         assert_eq!(position.bp, 0x00ff000000000000);
         assert_eq!(position.bn, 0x4200000000000000);
         assert_eq!(position.bb, 0x2400000000000000);
@@ -166,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_from_fen_pos1() {
-        let position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/6B1/3PP1b1/Q1P2N2/P4PPP/3RKB1R b Kq g3 4 13")).unwrap();
+        let position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/6B1/3PP1b1/Q1P2N2/P4PPP/3RKB1R b Kq g3 4 13"), true).unwrap();
         assert_eq!(position.bp, PositionHelper::bitboard_from_algebraic(vec!["a7", "b7", "e7", "f7", "h7", "c6", "g6"]));
         assert_eq!(position.bn, PositionHelper::bitboard_from_algebraic(vec!["f6"]));
         assert_eq!(position.bb, PositionHelper::bitboard_from_algebraic(vec!["g7", "g4"]));
@@ -190,7 +192,7 @@ mod tests {
     #[test]
     // #[should_panic(expected = "Divide result is zero")]
     fn test_calc_occupancy() {
-        let position = Position::from_fen(Some(START_POSITION)).unwrap();
+        let position = Position::from_fen(Some(START_POSITION), true).unwrap();
         // let before = Instant::now();
         // for _ in 0..100000000 {
         assert_eq!((position.white_occupancy, position.black_occupancy, position.all_occupancy, position.non_occupancy),

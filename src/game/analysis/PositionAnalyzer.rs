@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn test_double_check() {
         // 1. Starting position
-        let mut position = Position::from_fen(Some("4k3/6N1/5b2/4R3/8/8/8/4K3 b KQkq b6 1 2")).unwrap();
+        let mut position = Position::from_fen(Some("4k3/6N1/5b2/4R3/8/8/8/4K3 b KQkq b6 1 2"), true).unwrap();
         let mut move_list = GameMoveList::default();
 
         PositionAnalyzer::calc_legal_moves(&mut position, &mut move_list);
@@ -223,6 +223,67 @@ mod tests {
     }
 
     #[test]
+    fn test_en_passant_check() {
+        // 1. Checking piece can be captured en passant only
+        let (_, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/8/8/2k5/3Pp3/8/8/3K4 b - d3 1 2"));
+        LegalMovesTestHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [u64::MAX; 64],
+            PositionHelper::bitboard_from_algebraic(vec!["d4"]),
+            1,
+            false
+        );
+
+        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
+        // let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        LegalMovesTestHelper::check_attack_and_movement_squares(
+            (pawn_attacks, pawn_movements),
+            vec!["d3"],
+            vec!["d3"]
+        );
+
+
+        // 2. Checking piece can be blocked by en passant capture only
+        let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/8/8/1k6/3Pp3/8/8/3K1Q2 b - d3 1 2"));
+        LegalMovesTestHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [u64::MAX; 64],
+            PositionHelper::bitboard_from_algebraic(vec!["f1", "e2", "d3", "c4"]),
+            1,
+            false
+        );
+
+        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
+        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        LegalMovesTestHelper::check_attack_and_movement_squares(
+            (king_attacks | pawn_attacks, king_movements | pawn_movements),
+            vec!["a6", "a5", "a4", "b4", "b6", "c6", "c5", "c4", "d3"],
+            vec!["a5", "a4", "b4", "b6", "c6", "d3"]
+        );
+    }
+
+    #[test]
+    fn test_en_passant_pin() {
+        // 1. Checking piece can be captured en passant only
+        let (_, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/8/8/8/k2Pp2Q/8/8/3K4 b - d3 1 2"));
+        LegalMovesTestHelper::check_king_attack_analysis(
+            &king_attack_analyzer,
+            [u64::MAX; 64],
+            u64::MAX,
+            0,
+            true
+        );
+
+        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
+        // let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        LegalMovesTestHelper::check_attack_and_movement_squares(
+            (pawn_attacks, pawn_movements),
+            vec!["d3", "f3"],
+            vec!["e3"]
+        );
+    }
+
+    #[test]
     fn test_calc_legal_moves_benchmark() {
         // currently about 8.5s after calculating and storing pawn moves only
         // About 20s after all pieces were added
@@ -230,7 +291,7 @@ mod tests {
         // let iterations = 10000000;
         let iterations = 100;
 
-        let mut position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
+        let mut position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2"), true).unwrap();
         let mut move_list = GameMoveList::default();
         let before = Instant::now();
         for _ in 0..iterations {

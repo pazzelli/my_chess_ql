@@ -1,6 +1,9 @@
 // use std::time::Instant;
 // use rayon::prelude::*;
 
+use crate::constants::SINGLE_BITBOARDS;
+use crate::game::position::Position;
+
 pub struct PositionHelper {
 
 }
@@ -63,6 +66,31 @@ impl PositionHelper {
     #[inline(always)]
     pub fn bool_to_bitboard(val: bool) -> u64 {
         u64::MAX * (val as u64)
+    }
+
+    pub fn print_position(position: &Position) {
+        println!("----------");
+        for rank in (0..8).rev() {
+            print!("-");
+            for file in 0..8 {
+                let bb = SINGLE_BITBOARDS[(rank << 3) + file];
+                if bb & position.bp > 0 { print!("p"); }
+                else if bb & position.bn > 0 { print!("n"); }
+                else if bb & position.bb > 0 { print!("b"); }
+                else if bb & position.br > 0 { print!("r"); }
+                else if bb & position.bq > 0 { print!("q"); }
+                else if bb & position.bk > 0 { print!("k"); }
+                else if bb & position.wp > 0 { print!("P"); }
+                else if bb & position.wn > 0 { print!("N"); }
+                else if bb & position.wb > 0 { print!("B"); }
+                else if bb & position.wr > 0 { print!("R"); }
+                else if bb & position.wq > 0 { print!("Q"); }
+                else if bb & position.wk > 0 { print!("K"); }
+                else { print!(" "); }
+            }
+            println!("-");
+        }
+        println!("----------");
     }
 }
 

@@ -80,7 +80,7 @@ mod tests {
         // let iterations = 40000000;   // currently about 8.5s after calculating and storing pawn moves only
         let iterations = 100;
 
-        let position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/51b1/QN3N1P/P1P2PP1/3RKB1R w KQkq b6 1 2")).unwrap();
+        let position = Position::from_fen(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/51b1/QN3N1P/P1P2PP1/3RKB1R w KQkq b6 1 2"), true).unwrap();
         let mut king_attack_analyzer = KingAttackRayAnalyzer::default();
         let mut move_list = GameMoveList::default();
         let before = Instant::now();

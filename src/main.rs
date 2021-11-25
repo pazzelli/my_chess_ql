@@ -14,7 +14,8 @@ use game::pieces::piece::*;
 use game::analysis::positionanalyzer::*;
 use game::position::*;
 use game::positionhelper::*;
-use game::gamemovelist::*;
+use game::moves::gamemovelist::*;
+use crate::test::legalmoveshelper::LegalMovesTestHelper;
 
 fn process_ui_commands(uci_interface: &mut uci::UCIInterface) {
     loop {

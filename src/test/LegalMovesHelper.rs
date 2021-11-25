@@ -16,7 +16,7 @@ impl LegalMovesTestHelper {
     pub fn init_test_position_from_fen_str(position_str: Option<&str>) -> (u64, Position, GameMoveList, KingAttackRayAnalyzer, MoveMaker) {
         let move_maker = MoveMaker::default();
         let move_list = GameMoveList::default();
-        let mut position = Position::from_fen(position_str).unwrap();
+        let mut position = Position::from_fen(position_str, true).unwrap();
         let (enemy_attacked_squares, king_attack_analyzer) = Self::init_test_position_from_position(&mut position);
         (enemy_attacked_squares, position, move_list, king_attack_analyzer, move_maker)
     }

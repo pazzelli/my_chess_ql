@@ -17,11 +17,14 @@ impl Pawn {
         let left_attacked;
         let right_attacked;
         let mut king_check_board = 0u64;
+        let mut check_ray_incl_en_passant= position.check_ray_mask;
 
         match player {
             PlayerColour::WHITE => {
                 left_attacked = (position.wp & !A_FILE) << 7;
                 right_attacked = (position.wp & !H_FILE) << 9;
+
+                check_ray_incl_en_passant |= PositionHelper::bool_to_bitboard((position.en_passant_sq >> 8) == position.check_ray_mask) & position.en_passant_sq;
 
                 king_check_board |= (enemy_king_pos >> 7) & PositionHelper::bool_to_bitboard(left_attacked & enemy_king_pos > 0);
                 king_check_board |= (enemy_king_pos >> 9) & PositionHelper::bool_to_bitboard(right_attacked & enemy_king_pos > 0);
@@ -30,12 +33,14 @@ impl Pawn {
                 left_attacked = (position.bp & !H_FILE) >> 7;
                 right_attacked = (position.bp & !A_FILE) >> 9;
 
+                check_ray_incl_en_passant |= PositionHelper::bool_to_bitboard((position.en_passant_sq << 8) == position.check_ray_mask) & position.en_passant_sq;
+
                 king_check_board |= (enemy_king_pos << 7) & PositionHelper::bool_to_bitboard(left_attacked & enemy_king_pos > 0);
                 king_check_board |= (enemy_king_pos << 9) & PositionHelper::bool_to_bitboard(right_attacked & enemy_king_pos > 0);
             }
         }
 
-        (left_attacked & position.check_ray_mask, right_attacked & position.check_ray_mask, king_check_board)
+        (left_attacked & check_ray_incl_en_passant, right_attacked & check_ray_incl_en_passant, king_check_board)
     }
 
     #[inline(always)]
@@ -180,7 +185,7 @@ mod tests {
         // let iterations = 40000000;   // currently about 8.5s after calculating and storing pawn moves only
         let iterations = 100;
 
-        let position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
+        let position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2"), true).unwrap();
         let mut king_attack_analyzer = KingAttackRayAnalyzer::default();
         let mut move_list = GameMoveList::default();
         let before = Instant::now();

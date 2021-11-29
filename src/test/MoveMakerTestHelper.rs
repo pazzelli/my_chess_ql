@@ -24,6 +24,10 @@ impl MoveMakerTestHelper {
         move_maker.make_move(position, game_move);
         move_maker.unmake_move(position, game_move);
 
+        MoveMakerTestHelper::compare_positions(&orig, &position)
+    }
+
+    pub fn compare_positions(orig: &Position, position: &Position) {
         assert_eq!(position.wp, orig.wp);
         assert_eq!(position.wn, orig.wn);
         assert_eq!(position.wb, orig.wb);
@@ -47,6 +51,5 @@ impl MoveMakerTestHelper {
         assert_eq!(position.white_to_move, orig.white_to_move);
         assert_eq!(position.fifty_move_count, orig.fifty_move_count);
         assert_eq!(position.move_number, orig.move_number);
-
     }
 }

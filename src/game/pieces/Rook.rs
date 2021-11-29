@@ -1,3 +1,4 @@
+use std::ops::DerefMut;
 use crate::constants::*;
 use crate::game::analysis::positionanalyzer::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
@@ -6,6 +7,7 @@ use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
+use crate::PIECE_ATTACK_SQUARES;
 
 pub struct Rook {
 
@@ -19,18 +21,17 @@ impl Piece for Rook {
 
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
+            let mut cur_piece_attacks = Rook::calc_rank_attacks(&position, sq_ind, RANKS[sq_ind], enemy_king_pos);
+            cur_piece_attacks |= Rook::calc_file_or_diagonal_attacks(&position, sq_ind, FILES[sq_ind], enemy_king_pos);
+            rook_attacks |= cur_piece_attacks;
 
-            rook_attacks |= Rook::calc_rank_attacks(&position, sq_ind, RANKS[sq_ind], enemy_king_pos);
-            rook_attacks |= Rook::calc_file_or_diagonal_attacks(&position, sq_ind, FILES[sq_ind], enemy_king_pos);
+            PIECE_ATTACK_SQUARES.with(|attack_squares| {
+                attack_squares.borrow_mut().deref_mut()[sq_ind] = cur_piece_attacks;
+            });
 
-            if RANKS[sq_ind] & enemy_king_pos > 0 {
+            if RANKS[sq_ind] & enemy_king_pos > 0 || FILES[sq_ind] & enemy_king_pos > 0 {
                 let king_sq = enemy_king_pos.trailing_zeros() as usize;
-                king_attack_analyzer.analyze_king_attack_ray(position, ATTACK_RAYS[(sq_ind << 6) + king_sq], true, enemy_king_pos);
-            }
-
-            if FILES[sq_ind] & enemy_king_pos > 0 {
-                let king_sq = enemy_king_pos.trailing_zeros() as usize;
-                king_attack_analyzer.analyze_king_attack_ray(position, ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
+                king_attack_analyzer.analyze_king_attack_ray(position, ATTACK_RAYS[(sq_ind << 6) + king_sq], RANKS[sq_ind] & enemy_king_pos > 0, enemy_king_pos);
             }
 
             piece_pos &= piece_pos - 1;

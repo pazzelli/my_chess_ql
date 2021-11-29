@@ -1,3 +1,4 @@
+use std::ops::DerefMut;
 use crate::constants::*;
 use crate::game::analysis::positionanalyzer::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
@@ -6,6 +7,7 @@ use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::*;
 use crate::game::positionhelper::*;
+use crate::PIECE_ATTACK_SQUARES;
 
 pub struct Bishop {
 
@@ -19,15 +21,15 @@ impl Piece for Bishop {
 
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
-            bishop_attacks |= Bishop::calc_file_or_diagonal_attacks(&position, sq_ind, DIAGONALS[sq_ind], enemy_king_pos);
-            bishop_attacks |= Bishop::calc_file_or_diagonal_attacks(&position, sq_ind, ANTI_DIAGONALS[sq_ind], enemy_king_pos);
+            let mut cur_piece_attacks = Bishop::calc_file_or_diagonal_attacks(&position, sq_ind, DIAGONALS[sq_ind], enemy_king_pos);
+            cur_piece_attacks |= Bishop::calc_file_or_diagonal_attacks(&position, sq_ind, ANTI_DIAGONALS[sq_ind], enemy_king_pos);
+            bishop_attacks |= cur_piece_attacks;
 
-            if DIAGONALS[sq_ind] & enemy_king_pos > 0 {
-                let king_sq = enemy_king_pos.trailing_zeros() as usize;
-                king_attack_analyzer.analyze_king_attack_ray(position, ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
-            }
+            PIECE_ATTACK_SQUARES.with(|attack_squares| {
+                attack_squares.borrow_mut().deref_mut()[sq_ind] = cur_piece_attacks;
+            });
 
-            if ANTI_DIAGONALS[sq_ind] & enemy_king_pos > 0 {
+            if DIAGONALS[sq_ind] & enemy_king_pos > 0 || ANTI_DIAGONALS[sq_ind] & enemy_king_pos > 0 {
                 let king_sq = enemy_king_pos.trailing_zeros() as usize;
                 king_attack_analyzer.analyze_king_attack_ray(position, ATTACK_RAYS[(sq_ind << 6) + king_sq], false, enemy_king_pos);
             }

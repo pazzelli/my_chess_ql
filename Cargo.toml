@@ -12,6 +12,7 @@ edition = "2021"
 [dependencies]
 #array2d = "0.2.1"
 simple-error = "0.2.3"
+json = "0.12.4"
 #bitintr = "0.3.0"
 #rayon = "1.5.1"
 #core_simd = { git = "https://github.com/rust-lang/portable-simd" }

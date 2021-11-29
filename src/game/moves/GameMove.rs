@@ -27,12 +27,15 @@ impl Default for GameMove {
 
 impl Debug for GameMove {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("GameMove")
-            .field("piece", &self.piece)
-            .field("source_square", &PositionHelper::algebraic_from_index(self.source_square))
-            .field("target_square", &PositionHelper::algebraic_from_index(self.target_square))
-            .field("promotion_piece", &self.promotion_piece)
-            .field("is_capture", &self.is_capture)
-            .finish()
+        let result = vec![PositionHelper::algebraic_from_index(self.source_square), PositionHelper::algebraic_from_index(self.target_square)].join("");
+        f.write_str(result.as_str())
+
+        // f.debug_struct("GameMove")
+        //     .field("piece", &self.piece)
+        //     .field("source_square", &PositionHelper::algebraic_from_index(self.source_square))
+        //     .field("target_square", &PositionHelper::algebraic_from_index(self.target_square))
+        //     .field("promotion_piece", &self.promotion_piece)
+        //     .field("is_capture", &self.is_capture)
+        //     .finish()
     }
 }

@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use crate::constants::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
@@ -6,6 +6,7 @@ use crate::game::analysis::positionanalyzer::*;
 use crate::game::moves::gamemovelist::*;
 use crate::game::position::*;
 use crate::game::positionhelper::*;
+use crate::PIECE_ATTACK_SQUARES;
 
 pub trait Piece {
     // Each piece type must override and provide a value
@@ -35,7 +36,10 @@ pub trait Piece {
 
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
-            let cur_piece_movement_squares: u64 = base_movement_squares & position.pin_ray_masks[sq_ind];
+            let mut cur_piece_movement_squares: u64 = base_movement_squares & position.pin_ray_masks[sq_ind];
+            PIECE_ATTACK_SQUARES.with(|attack_squares| {
+                cur_piece_movement_squares &= attack_squares.borrow().deref()[sq_ind];
+            });
             movement_squares |= cur_piece_movement_squares;
 
             let capture_squares = cur_piece_movement_squares & position.enemy_occupancy;

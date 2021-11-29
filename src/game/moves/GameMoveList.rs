@@ -1,9 +1,10 @@
+use std::fmt::*;
+use simple_error::SimpleError;
 use crate::constants::*;
 use crate::game::moves::gamemove::*;
 
-const MAX_MOVES_PER_POSITION: usize = 128;
+const MAX_MOVES_PER_POSITION: usize = 256;
 
-#[derive(Debug)]
 pub struct GameMoveList {
     // This is much faster than using a Vec<GameMove>
     // Also, there is little benefit in using a tuple() instead of a GameMove struct, so will
@@ -23,7 +24,7 @@ pub struct GameMoveList {
 impl Default for GameMoveList {
     fn default() -> GameMoveList{
         GameMoveList {
-            move_list: [GameMove::default(); 128],
+            move_list: [GameMove::default(); 256],
             // piece: [PieceType::NONE; MAX_MOVES_PER_POSITION],
             // source_square: [0; MAX_MOVES_PER_POSITION],
             // target_square: [0; MAX_MOVES_PER_POSITION],
@@ -58,5 +59,30 @@ impl GameMoveList {
         // self.is_capture[self.list_len] = is_capture;
 
         self.list_len += 1;
+    }
+}
+
+impl Debug for GameMoveList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        // let result = vec![PositionHelper::algebraic_from_index(self.source_square), PositionHelper::algebraic_from_index(self.target_square)].join("");
+        // f.write_str(result.as_str())
+        let mut moves: Vec<String> = vec![];
+        for i in 0..self.list_len {
+            moves.push(format!("{:?}", self.move_list[i]));
+            // f.write_str(format!("{:?}\n", self.move_list[i]).as_str());
+        }
+        moves.sort();
+        f.write_str(moves.join(" ").as_str())
+
+        // Ok(())
+
+
+        // f.debug_struct("GameMove")
+        //     .field("piece", &self.piece)
+        //     .field("source_square", &PositionHelper::algebraic_from_index(self.source_square))
+        //     .field("target_square", &PositionHelper::algebraic_from_index(self.target_square))
+        //     .field("promotion_piece", &self.promotion_piece)
+        //     .field("is_capture", &self.is_capture)
+        //     .finish()
     }
 }

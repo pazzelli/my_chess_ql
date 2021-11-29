@@ -1,4 +1,7 @@
+use std::borrow::BorrowMut;
+use std::ops::DerefMut;
 use crate::constants::*;
+use crate::constants::PieceType::KNIGHT;
 use crate::game::analysis::positionanalyzer::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
 use crate::game::moves::gamemove::*;
@@ -6,6 +9,7 @@ use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
+use crate::PIECE_ATTACK_SQUARES;
 
 pub struct Knight {
 
@@ -21,6 +25,10 @@ impl Piece for Knight {
         while piece_pos > 0 {
             let sq_ind: usize = piece_pos.trailing_zeros() as usize;
             knight_attacks |= KNIGHT_ATTACKS[sq_ind];
+
+            PIECE_ATTACK_SQUARES.with(|attack_squares| {
+                attack_squares.borrow_mut().deref_mut()[sq_ind] = KNIGHT_ATTACKS[sq_ind];
+            });
 
             king_check_board |= SINGLE_BITBOARDS[sq_ind] & PositionHelper::bool_to_bitboard(KNIGHT_ATTACKS[sq_ind] & enemy_king_pos > 0);
             piece_pos &= piece_pos - 1;

@@ -131,6 +131,59 @@ impl Position {
         self.all_occupancy = self.white_occupancy | self.black_occupancy;
         self.non_occupancy = !self.all_occupancy;
     }
+    
+    pub fn to_fen(&self) -> String {
+        let mut result: Vec<char> = vec![];
+        
+        for rank in (0..8).rev() {
+            let mut empty_sq = 0;
+            for file in 0..8 {
+                let bb = SINGLE_BITBOARDS[(rank << 3) + file];
+                if bb & self.bp > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('p'); }
+                else if bb & self.bn > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('n'); }
+                else if bb & self.bb > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('b'); }
+                else if bb & self.br > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('r'); }
+                else if bb & self.bq > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('q'); }
+                else if bb & self.bk > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('k'); }
+                else if bb & self.wp > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('P'); }
+                else if bb & self.wn > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('N'); }
+                else if bb & self.wb > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('B'); }
+                else if bb & self.wr > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('R'); }
+                else if bb & self.wq > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('Q'); }
+                else if bb & self.wk > 0 { if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap()); empty_sq = 0;} result.push('K'); }
+                else { empty_sq += 1; }
+            }
+            if empty_sq > 0 {result.push(char::from_digit(empty_sq, 10).unwrap());}
+            if rank > 0 { result.push('/'); }
+        }
+
+        result.push(' ');
+        match self.white_to_move {
+            true => result.push('w'),
+            false => result.push('b')
+        }
+
+        result.push(' ');
+        if self.castling_rights <= 0 { result.push('-'); }
+        if self.castling_rights & SINGLE_BITBOARDS[6] > 0 { result.push('K');}
+        if self.castling_rights & SINGLE_BITBOARDS[2] > 0 { result.push('Q');}
+        if self.castling_rights & SINGLE_BITBOARDS[62] > 0 { result.push('k');}
+        if self.castling_rights & SINGLE_BITBOARDS[58] > 0 { result.push('q');}
+
+        let mut result: Vec<String> = vec![String::from_iter(result.iter())];
+
+        // result.push(String::from(" "));
+        if self.en_passant_sq <= 0 { result.push(String::from("-")); }
+        else {result.append(&mut PositionHelper::algebraic_from_bitboard(self.en_passant_sq));}
+
+        // result.push(String::from(" "));
+        result.push( self.fifty_move_count.to_string());
+
+        // result.push(String::from(" "));
+        result.push(self.move_number.to_string());
+
+        result.join(" ")
+    }
 }
 
 #[cfg(test)]
@@ -187,6 +240,16 @@ mod tests {
         assert_eq!(position.en_passant_sq, PositionHelper::bitboard_from_algebraic(vec!["g3"]));
         assert_eq!(position.fifty_move_count, 4);
         assert_eq!(position.move_number, 13);
+    }
+
+    #[test]
+    fn test_fen_string_generation() {
+        let fen = "r2q1rk1/pp2ppbp/2p2np1/6B1/3PP1b1/Q1P2N2/P4PPP/3RKB1R b Kq g3 4 13";
+        let position = Position::from_fen(Some(fen), true).unwrap();
+        assert_eq!(fen, position.to_fen());
+
+        let position = Position::from_fen(None, true).unwrap();
+        assert_eq!("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", position.to_fen());
     }
 
     #[test]

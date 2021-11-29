@@ -2,12 +2,16 @@ use crate::constants::*;
 use crate::game::position::*;
 use crate::game::moves::gamemove::*;
 use crate::game::positionhelper::PositionHelper;
+use crate::PIECE_ATTACK_SQUARES;
 
 pub struct MoveMaker {
     old_wp: u64, old_wn: u64, old_wb: u64, old_wr: u64, old_wq: u64, old_wk: u64,
     old_bp: u64, old_bn: u64, old_bb: u64, old_br: u64, old_bq: u64, old_bk: u64,
     old_en_passant_sq: u64,
-    old_castling_rights: u64
+    old_castling_rights: u64,
+    old_king_in_check: bool, old_king_in_double_check: bool,
+    old_is_stalemate: bool, old_is_checkmate: bool,
+    old_pin_ray_masks: [u64; 64], old_check_ray_mask: u64,
 }
 
 impl Default for MoveMaker {
@@ -16,7 +20,10 @@ impl Default for MoveMaker {
             old_wp: 0, old_wn: 0, old_wb: 0, old_wr: 0, old_wq: 0, old_wk: 0,
             old_bp: 0, old_bn: 0, old_bb: 0, old_br: 0, old_bq: 0, old_bk: 0,
             old_en_passant_sq: 0,
-            old_castling_rights: 0
+            old_castling_rights: 0,
+            old_king_in_check: false, old_king_in_double_check: false,
+            old_is_stalemate: false, old_is_checkmate: false,
+            old_pin_ray_masks: [0u64; 64], old_check_ray_mask: 0
         }
     }
 }
@@ -38,6 +45,12 @@ impl MoveMaker {
         self.old_bk = position.bk;
         self.old_en_passant_sq = position.en_passant_sq;
         self.old_castling_rights = position.castling_rights;
+        self.old_king_in_check = position.king_in_check;
+        self.old_king_in_double_check = position.king_in_double_check;
+        self.old_is_stalemate = position.is_stalemate;
+        self.old_is_checkmate = position.is_checkmate;
+        self.old_pin_ray_masks = position.pin_ray_masks.clone();
+        self.old_check_ray_mask = position.check_ray_mask;
     }
     
     #[inline(always)]
@@ -146,6 +159,14 @@ impl MoveMaker {
         position.fifty_move_count += !(is_pawn_move || game_move.is_capture) as u8;
         position.white_to_move = !position.white_to_move;
         position.update_occupancy();
+
+        position.king_in_check = false;
+        position.king_in_double_check = false;
+        position.is_stalemate = false;
+        position.is_checkmate = false;
+
+        position.pin_ray_masks = [u64::MAX; 64];
+        position.check_ray_mask =  u64::MAX;
     }
 
     pub fn unmake_move(&self, position: &mut Position, game_move: &GameMove) {
@@ -173,6 +194,14 @@ impl MoveMaker {
         position.move_number -= (!position.white_to_move) as u16;
         position.fifty_move_count -= !(is_pawn_move || game_move.is_capture) as u8;
         position.update_occupancy();
+
+        position.king_in_check = self.old_king_in_check;
+        position.king_in_double_check = self.old_king_in_double_check;
+        position.is_stalemate = self.old_is_stalemate;
+        position.is_checkmate = self.old_is_checkmate;
+
+        position.pin_ray_masks = self.old_pin_ray_masks.clone();
+        position.check_ray_mask =  self.old_check_ray_mask;
     }
 }
 
@@ -180,6 +209,8 @@ impl MoveMaker {
 mod tests {
     use std::borrow::Borrow;
     use std::time::Instant;
+    use crate::game::pieces::king::King;
+    use crate::game::pieces::piece::Piece;
     use crate::test::legalmoveshelper::LegalMovesTestHelper;
     use crate::test::movemakertesthelper::MoveMakerTestHelper;
 
@@ -225,6 +256,49 @@ mod tests {
             (position.wq, vec!["c5"]),
             (position.bp, vec!["a7", "b7", "c6", "e7", "f7", "g6", "h7", "h3"])
         ]);
+    }
+
+    #[test]
+    fn test_make_move_2() {
+        let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 1 1"));
+        // g3+
+        LegalMovesTestHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            vec!["a6", "a4", "b4", "b5", "b6"],
+            vec!["a6", "a4"]
+        );
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::PAWN,
+            source_square: 14, // g2
+            target_square: 22, // g3
+            promotion_piece: PieceType::NONE,
+            is_capture: false
+        });
+        MoveMakerTestHelper::check_make_move_result(vec![
+            (position.bp, vec!["c7", "d6", "f4"]),
+            (position.wp, vec!["e2", "g3", "b5"])
+        ]);
+
+
+        // Kxg3
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::KING,
+            source_square: 31, // h4
+            target_square: 22, // g3
+            promotion_piece: PieceType::NONE,
+            is_capture: true
+        });
+        MoveMakerTestHelper::check_make_move_result(vec![
+            (position.bp, vec!["c7", "d6", "f4"]),
+            (position.wp, vec!["e2", "b5"])
+        ]);
+        // let mut king_attack_analyzer = KingAttackRayAnalyzer::default();
+        let enemy_attacked_squares = LegalMovesTestHelper::calc_enemy_attacked_squares(&mut position, &mut king_attack_analyzer);
+        LegalMovesTestHelper::check_attack_and_movement_squares(
+            King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            vec!["a6", "a4", "b4", "b5", "b6"],
+            vec!["a6", "a4"]
+        );
     }
 
     #[test]

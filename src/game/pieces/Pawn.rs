@@ -101,8 +101,9 @@ impl Piece for Pawn {
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, left_attacked & capture_squares, -7, true);
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, right_attacked & capture_squares, -9, true);
 
-            let forward_one_square_moves = (position.wp << 8) & position.non_occupancy & position.check_ray_mask;
-            let forward_two_square_moves = ((position.wp & RANK_2) << 16) & (forward_one_square_moves << 8) & position.non_occupancy & position.check_ray_mask;
+            let forward_one_square_empty = (position.wp << 8) & position.non_occupancy;
+            let forward_one_square_moves = forward_one_square_empty & position.check_ray_mask;
+            let forward_two_square_moves = ((position.wp & RANK_2) << 16) & (forward_one_square_empty << 8) & position.non_occupancy & position.check_ray_mask;
 
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, forward_one_square_moves, -8, false);
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, forward_two_square_moves, -16, false);
@@ -118,8 +119,9 @@ impl Piece for Pawn {
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, left_attacked & capture_squares, 7, true);
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, right_attacked & capture_squares, 9, true);
 
-            let forward_one_square_moves = (position.bp >> 8) & position.non_occupancy & position.check_ray_mask;
-            let forward_two_square_moves = ((position.bp & RANK_7) >> 16) & (forward_one_square_moves >> 8) & position.non_occupancy & position.check_ray_mask;
+            let forward_one_square_empty = (position.bp >> 8) & position.non_occupancy;
+            let forward_one_square_moves = forward_one_square_empty & position.check_ray_mask;
+            let forward_two_square_moves = ((position.bp & RANK_7) >> 16) & (forward_one_square_empty >> 8) & position.non_occupancy & position.check_ray_mask;
 
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, forward_one_square_moves, 8, false);
             all_valid_movements |= Pawn::add_pawn_movement(move_list, &position, forward_two_square_moves, 16, false);

@@ -52,7 +52,7 @@ impl Piece for King {
 
         // let castle_base = (king_non_captures | position.castling_rights) & PositionHelper::bool_to_bitboard(!position.king_in_check);
         let short_castle = castle_base & (castle_base << 1);
-        let long_castle = castle_base & (castle_base >> 1);
+        let long_castle = castle_base & (castle_base >> 1) & (((SINGLE_BITBOARDS[1] | SINGLE_BITBOARDS[57]) & position.non_occupancy) << 1);
         let castling_squares = (short_castle | long_castle) & position.castling_rights;
 
 

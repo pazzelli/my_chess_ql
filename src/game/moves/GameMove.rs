@@ -27,8 +27,17 @@ impl Default for GameMove {
 
 impl Debug for GameMove {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        let result = vec![PositionHelper::algebraic_from_index(self.source_square), PositionHelper::algebraic_from_index(self.target_square)].join("");
-        f.write_str(result.as_str())
+        let mut result = vec![PositionHelper::algebraic_from_index(self.source_square), PositionHelper::algebraic_from_index(self.target_square)];
+        if self.promotion_piece != PieceType::NONE {
+            result.push(String::from(match self.promotion_piece {
+                PieceType::QUEEN => "q",
+                PieceType::KNIGHT => "n",
+                PieceType::ROOK => "r",
+                PieceType::BISHOP => "b",
+                _ => ""
+            }));
+        }
+        f.write_str(result.join("").as_str())
 
         // f.debug_struct("GameMove")
         //     .field("piece", &self.piece)

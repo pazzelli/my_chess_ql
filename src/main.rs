@@ -1,5 +1,8 @@
+
 // #![feature(portable_simd)]
 #![allow(dead_code, unused_imports)]
+#[macro_use] extern crate lazy_static;
+extern crate regex;
 mod constants;
 mod engine;
 mod game;

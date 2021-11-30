@@ -54,10 +54,10 @@ impl MoveMaker {
     }
     
     #[inline(always)]
-    fn calc_make_move_common_objects(white_to_move: bool, en_passant_sq: u64, game_move: &GameMove) -> (u64, u64) {
+    fn calc_make_move_common_objects(white_to_move: bool, is_pawn_move: bool, en_passant_sq: u64, game_move: &GameMove) -> (u64, u64) {
         let movement_board = SINGLE_BITBOARDS[game_move.source_square as usize] | SINGLE_BITBOARDS[game_move.target_square as usize];
         let mut captured_piece_square = SINGLE_BITBOARDS[game_move.target_square as usize];
-        let is_en_passant_capture = en_passant_sq == captured_piece_square;
+        let is_en_passant_capture = en_passant_sq == captured_piece_square && is_pawn_move;
 
         // This is basically an if statement that shifts the target capture square up one row if white is capturing en passant
         // or down one row if black is capturing en passant, or just using the capture square if it is not an en passant
@@ -70,7 +70,7 @@ impl MoveMaker {
 
     pub fn make_move(&mut self, position: &mut Position, game_move: &GameMove) {
         let is_pawn_move = game_move.piece == PieceType::PAWN;
-        let (target_square_board, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, position.en_passant_sq, &game_move);
+        let (target_square_board, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, is_pawn_move, position.en_passant_sq, &game_move);
         let movement_sq_count = (game_move.target_square as i8 - game_move.source_square as i8).abs();
         let center_movement_sq_board = SINGLE_BITBOARDS[((game_move.source_square + game_move.target_square) >> 1) as usize];
 

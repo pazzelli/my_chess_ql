@@ -185,10 +185,12 @@ mod tests {
 
     #[test]
     fn test_perft() {
+        // Tests just a basic perft run from the starting position, with the depth specified
         let depth: u8 = 1;
-        let mut stockfish = open_stockfish();
+        let verify_with_stockfish = false;
 
-        // Position #1: starting position
+        // Starting position
+        let mut stockfish = if verify_with_stockfish { open_stockfish() } else { None };
         let mut position = Position::from_fen(None, true).unwrap();
 
         match test_perft_recursive(&mut position, depth, true, &mut stockfish){
@@ -219,7 +221,9 @@ mod tests {
 
     #[test]
     fn run_legal_moves_test_cases() {
-        let mut stockfish = open_stockfish();
+        // Set this to true to use Stockfish to verify generated moves
+        let intense_verify = false;
+        let mut stockfish = if intense_verify { None } else { open_stockfish() };
         let json_data = read_legal_moves_test_cases();
 
         for test_case in json_data.members() {
@@ -229,13 +233,16 @@ mod tests {
 
             let mut position = Position::from_fen(Some(fen), true).unwrap();
 
+            let before = Instant::now();
             let node_count =
-                match test_perft_recursive(&mut position, depth, true, &mut stockfish) {
+                match test_perft_recursive(&mut position, depth, intense_verify, &mut stockfish) {
                     Ok(result) => result,
                     Err(_) => 0
                 };
+            let elapsed = before.elapsed();
+            println!("Elapsed time: {:.2?}  ({:.1?} pos/s)", elapsed, (node_count as f64 / elapsed.as_millis() as f64) * 1000f64);
 
-            println!("Depth: {}\tNodes: {}\tExpected: {}", depth, node_count, expected_nodes);
+            println!("Depth: {}\tNodes: {}\tExpected: {}\n", depth, node_count, expected_nodes);
             assert_eq!(node_count, expected_nodes);
         }
     }

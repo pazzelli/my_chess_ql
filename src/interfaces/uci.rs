@@ -11,7 +11,7 @@ pub struct UCIInterface { //<'a> {
 impl UCIInterface {
     pub fn init_interface() -> UCIInterface {
         UCIInterface {
-            engine: EngineController::init_engine()
+            engine: EngineController::default()
         }
     }
 
@@ -34,21 +34,19 @@ impl UCIInterface {
 
             "position" => {
                 match cmd_tokens[1] {
-                    "fen" => self.engine.init_position(Some(&cmd_tokens[2..].join(""))),
+                    // "fen" => self.engine.init_position(Some(&cmd_tokens[2..].join(""))),
+                    "fen" => self.engine.init_position(Some(&cmd_tokens[2..].join(" "))),
 
                     "startpos" | _ => self.engine.init_position(None)   // start position is the default
                 };
-
-                // eng.position
-                // //"fen rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" => (),
             }
 
             "go" => {
                 // movetime 3000"
                 // UCIInterface::send_to_gui("info currmove d2d4 d7d5 currmovenumber 1");
-                self.engine.start_search();
-                UCIInterface::send_to_gui("info score cp 153  depth 1 nodes 13 time 15 pv d2d4 d7d5");
-                UCIInterface::send_to_gui("bestmove d2d4");
+                let best_move = self.engine.get_best_move();
+                // UCIInterface::send_to_gui("info score cp 153  depth 1 nodes 13 time 15 pv d2d4 d7d5");
+                UCIInterface::send_to_gui(format!("bestmove {}", best_move.as_str()).as_str());
             },
 
             "quit" => return false,

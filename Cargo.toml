@@ -15,6 +15,7 @@ simple-error = "0.2.3"
 json = "0.12.4"
 lazy_static = "1.4.0"
 regex = "0.2"
+rand = "0.8.4"
 #bitintr = "0.3.0"
 #rayon = "1.5.1"
 #core_simd = { git = "https://github.com/rust-lang/portable-simd" }

@@ -42,8 +42,8 @@ This shows the current board position being sent to the program in [Forsyth-Edwa
 This was a surprising amount of work since the use of bitboards makes the calculations tricky, and there are many [edge cases](https://peterellisjones.com/posts/generating-legal-chess-moves-efficiently/) to consider.
 
 I got this working perfectly by:
-- Writing specific, targeted unit test cases to ensure proper movement of pieces as well as handling of captures, pins, checks, etc.
-- Comparing my results to the published, [perft results](https://www.chessprogramming.org/Perft_Results#Initial_Position) at different depths of the game search tree.  For example, from the starting position, there are exactly **119,060,324** possible positions that can be reached (ignoring transpositions) after 6 moves.  This is used to validate that the move generator logic is working correctly.
+- **Writing specific, targeted unit test cases** to ensure proper movement of pieces as well as handling of captures, pins, checks, etc.
+- **Comparing my results to the published, [perft results](https://www.chessprogramming.org/Perft_Results#Initial_Position)** at different depths of the game search tree.  For example, from the starting position, there are exactly **119,060,324** possible positions that can be reached (ignoring transpositions) after 6 moves.  This is used to validate that the move generator logic is working correctly.
 - When my totals mismatched from the published ones, I found the remaining bugs by creating an [intense verification](https://github.com/pazzelli/my_chess_ql/blob/master/src/test/LegalMovesHelper.rs#L138) mode that:
   - **compares the values in the current, reused position object to a freshly-generated one**.  This helped to find bugs that occur by reusing the same position object while searching up and down the game tree (this object is reused for better performance)
   - **[compares each position traversed in the tree to the output produced by stockfish](https://github.com/pazzelli/my_chess_ql/blob/master/src/test/LegalMovesHelper.rs#L271)** (the world's current #1 chess engine) to look for mismatches
@@ -59,7 +59,10 @@ Coming soon
 
 ---
 ## Stuff I Learned
-When trying to get high performance:
+1. The [Rust](https://www.rust-lang.org/) programming language!  I had never used it prior to this project and I really like it now.  There was a bit of a learning curve when it came to learning the [borrowing and references system](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html) but it's pretty powerful once you understand it.  It helps prevent bugs and allows you to achieve high performance (which was important to me for this project) by **not needing a garbage collector** - this is awesome!
+
+
+2. When trying to get high performance:
 - **using any data that is dynamically-allocated on the heap (e.g. reference types such as *Vectors*), slows things down considerably**.  The overhead of allocating and freeing this memory at run-time is considerable as compared to the speed of running bitwise arithmetic operations, so arrays are often used to make things faster since their sizes are known at compile time.
 
 - **using bitboards and writing everything as bitwise operations is hard**.  It's difficult to conceptualize what all the bits will look like and to handle the complex scenarios that arise in chess using simple bitwise operations alone.

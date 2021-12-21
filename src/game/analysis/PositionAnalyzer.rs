@@ -1,8 +1,5 @@
-use std::ops;
-
 use crate::constants::*;
 use crate::game::analysis::kingattackrayanalyzer::*;
-use crate::game::moves::gamemove::*;
 use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::bishop::*;
 use crate::game::pieces::king::*;
@@ -89,7 +86,6 @@ impl PositionAnalyzer {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
     use std::time::Instant;
     use crate::test::legalmoveshelper::LegalMovesTestHelper;
 

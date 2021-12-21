@@ -1,7 +1,5 @@
 use crate::constants::*;
-use crate::game::analysis::positionanalyzer::PositionAnalyzer;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
-use crate::game::moves::gamemove::*;
 use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::Position;
@@ -65,8 +63,6 @@ impl Piece for King {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
-    use std::time::Instant;
     use crate::test::legalmoveshelper::LegalMovesTestHelper;
 
     use super::*;

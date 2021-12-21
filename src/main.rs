@@ -9,7 +9,6 @@ mod game;
 mod interfaces;
 mod test;
 
-use core::cell::RefCell;
 use std::path::PathBuf;
 use std::{io};
 use std::time::Instant;
@@ -26,8 +25,6 @@ use crate::game::moves::movemaker::MoveMaker;
 use crate::game::pieces::king::King;
 use crate::test::legalmoveshelper::LegalMovesTestHelper;
 use crate::test::movemakertesthelper::MoveMakerTestHelper;
-
-thread_local!(static PIECE_ATTACK_SQUARES: RefCell<[u64; 64]> = RefCell::new([0u64; 64]));
 
 
 fn process_ui_commands(uci_interface: &mut uci::UCIInterface) {

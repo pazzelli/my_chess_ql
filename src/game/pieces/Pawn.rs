@@ -1,6 +1,5 @@
 use crate::constants::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
-use crate::game::analysis::positionanalyzer::*;
 use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::piece::*;
 use crate::game::position::*;
@@ -133,7 +132,6 @@ impl Piece for Pawn {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
     use std::time::Instant;
     use crate::test::legalmoveshelper::LegalMovesTestHelper;
 

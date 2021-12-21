@@ -1,15 +1,12 @@
 
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::path::PathBuf;
 use std::process::*;
 use crate::constants::PlayerColour;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
 use crate::game::analysis::positionanalyzer::PositionAnalyzer;
-use crate::game::moves::gamemove::GameMove;
 use crate::game::moves::gamemovelist::GameMoveList;
 use crate::game::moves::movemaker::MoveMaker;
-use crate::game::pieces::king::King;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
 
@@ -90,19 +87,14 @@ impl LegalMovesTestHelper {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::{Borrow, BorrowMut};
     use std::fs::File;
-    use std::io;
-    use std::io::{BufRead, BufReader, Read, Stderr, Write};
-    use std::path::Path;
+    use std::io::{BufRead, BufReader, Read, Write};
     use std::time::Instant;
     use json::JsonValue;
     use simple_error::SimpleError;
-    use crate::constants::PieceType;
     use crate::game::analysis::positionanalyzer::PositionAnalyzer;
     use crate::game::moves::gamemovelist::GameMoveList;
     use crate::game::moves::movemaker::MoveMaker;
-    use crate::test::legalmoveshelper::LegalMovesTestHelper;
     use crate::test::movemakertesthelper::MoveMakerTestHelper;
 
     use super::*;
@@ -170,7 +162,7 @@ mod tests {
 
         let mut nodes = 0;
         for i in 0..move_list.list_len {
-            move_maker.make_move(position, &move_list.move_list[i]);
+            move_maker.make_move(position, &move_list.move_list[i], true);
 
             match self::test_perft_recursive(position, depth - 1, intense_verify, stockfish) {
                 Ok(n) => nodes += n,
@@ -223,7 +215,7 @@ mod tests {
     fn run_legal_moves_test_cases() {
         // Set this to true to use Stockfish to verify generated moves
         let intense_verify = false;
-        let mut stockfish = if intense_verify { None } else { open_stockfish() };
+        let mut stockfish = if intense_verify { open_stockfish() } else { None };
         let json_data = read_legal_moves_test_cases();
 
         for test_case in json_data.members() {

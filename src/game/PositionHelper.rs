@@ -9,6 +9,7 @@ pub struct PositionHelper {
 }
 
 impl PositionHelper {
+    #[inline(always)]
     pub fn rank_and_file_from_index(index: u8) -> (u8, u8) {
         (index >> 3, index & 7)
     }
@@ -69,7 +70,7 @@ impl PositionHelper {
     }
 
     pub fn print_position(position: &Position) {
-        println!("----------");
+        println!("-----------------");
         for rank in (0..8).rev() {
             print!("-");
             for file in 0..8 {
@@ -87,10 +88,11 @@ impl PositionHelper {
                 else if bb & position.wq > 0 { print!("Q"); }
                 else if bb & position.wk > 0 { print!("K"); }
                 else { print!(" "); }
+                print!("-");
             }
-            println!("-");
+            println!();
         }
-        println!("----------");
+        println!("-----------------");
     }
 }
 

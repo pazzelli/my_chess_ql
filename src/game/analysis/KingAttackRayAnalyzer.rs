@@ -1,6 +1,3 @@
-use std::ops;
-use crate::constants::SINGLE_BITBOARDS;
-use crate::game::pieces::king::King;
 use crate::game::position::Position;
 use crate::game::positionhelper::PositionHelper;
 

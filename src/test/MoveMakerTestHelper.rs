@@ -1,4 +1,3 @@
-use crate::constants::PieceType;
 use crate::game::moves::gamemove::GameMove;
 use crate::game::moves::movemaker::MoveMaker;
 use crate::game::position::Position;
@@ -21,7 +20,7 @@ impl MoveMakerTestHelper {
     pub fn test_unmake_move(position: &mut Position, move_maker: &mut MoveMaker, game_move: &GameMove) {
         let orig = position.clone();
 
-        move_maker.make_move(position, game_move);
+        move_maker.make_move(position, game_move, true);
         move_maker.unmake_move(position, game_move);
 
         MoveMakerTestHelper::compare_positions(&orig, &position)

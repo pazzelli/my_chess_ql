@@ -1,5 +1,5 @@
 use std::fmt::*;
-use simple_error::SimpleError;
+use regex::Regex;
 use crate::constants::*;
 use crate::game::moves::gamemove::*;
 
@@ -59,6 +59,18 @@ impl GameMoveList {
         // self.is_capture[self.list_len] = is_capture;
 
         self.list_len += 1;
+    }
+
+    // TODO: update this to not use Regexes anymore (they are way too slow)
+    pub fn get_move_by_extended_san(&self, move_extended_san_re: Regex) -> Option<GameMove> {
+        if self.list_len <= 0 { return None };
+
+        for i in 0..self.list_len {
+            if move_extended_san_re.find(self.move_list[i].get_extended_san_move_string().as_str()).is_some() {
+                return Some(self.move_list[i]);
+            }
+        }
+        None
     }
 }
 

@@ -1,15 +1,11 @@
 use std::ops::DerefMut;
 use crate::constants::*;
-use crate::game::analysis::positionanalyzer::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
-use crate::game::moves::gamemove::*;
-use crate::game::moves::gamemovelist::*;
 use crate::game::pieces::bishop::Bishop;
 use crate::game::pieces::piece::*;
 use crate::game::pieces::rook::Rook;
 use crate::game::position::Position;
-use crate::game::positionhelper::PositionHelper;
-use crate::PIECE_ATTACK_SQUARES;
+use crate::game::PIECE_ATTACK_SQUARES;
 
 pub struct Queen {
 
@@ -49,8 +45,6 @@ impl Piece for Queen {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
-    use std::time::Instant;
     use crate::test::legalmoveshelper::LegalMovesTestHelper;
 
     use super::*;

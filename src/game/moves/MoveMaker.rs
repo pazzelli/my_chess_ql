@@ -2,13 +2,13 @@ use crate::constants::*;
 use crate::game::position::*;
 use crate::game::moves::gamemove::*;
 use crate::game::positionhelper::PositionHelper;
-use crate::PIECE_ATTACK_SQUARES;
 
 pub struct MoveMaker {
     old_wp: u64, old_wn: u64, old_wb: u64, old_wr: u64, old_wq: u64, old_wk: u64,
     old_bp: u64, old_bn: u64, old_bb: u64, old_br: u64, old_bq: u64, old_bk: u64,
     old_en_passant_sq: u64,
     old_castling_rights: u64,
+    old_fifty_move_count: u8,
     old_king_in_check: bool, old_king_in_double_check: bool,
     old_is_stalemate: bool, old_is_checkmate: bool,
     old_pin_ray_masks: [u64; 64], old_check_ray_mask: u64,
@@ -21,6 +21,7 @@ impl Default for MoveMaker {
             old_bp: 0, old_bn: 0, old_bb: 0, old_br: 0, old_bq: 0, old_bk: 0,
             old_en_passant_sq: 0,
             old_castling_rights: 0,
+            old_fifty_move_count: 0,
             old_king_in_check: false, old_king_in_double_check: false,
             old_is_stalemate: false, old_is_checkmate: false,
             old_pin_ray_masks: [0u64; 64], old_check_ray_mask: 0
@@ -45,6 +46,7 @@ impl MoveMaker {
         self.old_bk = position.bk;
         self.old_en_passant_sq = position.en_passant_sq;
         self.old_castling_rights = position.castling_rights;
+        self.old_fifty_move_count = position.fifty_move_count;
         self.old_king_in_check = position.king_in_check;
         self.old_king_in_double_check = position.king_in_double_check;
         self.old_is_stalemate = position.is_stalemate;
@@ -68,13 +70,13 @@ impl MoveMaker {
         (captured_piece_square, movement_board)
     }
 
-    pub fn make_move(&mut self, position: &mut Position, game_move: &GameMove) {
+    pub fn make_move(&mut self, position: &mut Position, game_move: &GameMove, save_existing_state: bool) {
         let is_pawn_move = game_move.piece == PieceType::PAWN;
         let (target_square_board, movement_board) = MoveMaker::calc_make_move_common_objects(position.white_to_move, is_pawn_move, position.en_passant_sq, &game_move);
         let movement_sq_count = (game_move.target_square as i8 - game_move.source_square as i8).abs();
         let center_movement_sq_board = SINGLE_BITBOARDS[((game_move.source_square + game_move.target_square) >> 1) as usize];
 
-        self.save_position_state(position);
+        if save_existing_state { self.save_position_state(position); };
 
         // Any movement either from a corner square or to a corner square removes castling rights at that location
         let remove_castling_rights_board = CORNERS & movement_board;
@@ -156,7 +158,8 @@ impl MoveMaker {
         position.en_passant_sq = PositionHelper::bool_to_bitboard(is_pawn_move && movement_sq_count == 16)
             & center_movement_sq_board;
 
-        position.fifty_move_count += !(is_pawn_move || game_move.is_capture) as u8;
+        let not_fifty_move = (is_pawn_move || game_move.is_capture) as u8;
+        position.fifty_move_count = (1 - not_fifty_move) * (position.fifty_move_count + 1);
         position.white_to_move = !position.white_to_move;
         position.update_occupancy();
 
@@ -169,10 +172,9 @@ impl MoveMaker {
         position.check_ray_mask =  u64::MAX;
     }
 
-    pub fn unmake_move(&self, position: &mut Position, game_move: &GameMove) {
+    pub fn unmake_move(&self, position: &mut Position, _game_move: &GameMove) {
         // Do this first so that the white vs. black logic below aligns with that above
         position.white_to_move = !position.white_to_move;
-        let is_pawn_move = game_move.piece == PieceType::PAWN;
 
         position.wp = self.old_wp;
         position.wn = self.old_wn;
@@ -192,7 +194,7 @@ impl MoveMaker {
         position.castling_rights = self.old_castling_rights;
 
         position.move_number -= (!position.white_to_move) as u16;
-        position.fifty_move_count -= !(is_pawn_move || game_move.is_capture) as u8;
+        position.fifty_move_count = self.old_fifty_move_count;
         position.update_occupancy();
 
         position.king_in_check = self.old_king_in_check;
@@ -207,8 +209,6 @@ impl MoveMaker {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
-    use std::time::Instant;
     use crate::game::pieces::king::King;
     use crate::game::pieces::piece::Piece;
     use crate::test::legalmoveshelper::LegalMovesTestHelper;
@@ -226,7 +226,7 @@ mod tests {
             target_square: 45, // f6
             promotion_piece: PieceType::NONE,
             is_capture: true
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bn, vec!["g3"]),
             (position.wp, vec!["a2", "c2", "f2", "g2", "d5", "f6"])
@@ -239,7 +239,7 @@ mod tests {
             target_square: 58, // c8
             promotion_piece: PieceType::NONE,
             is_capture: false
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.br, vec!["c8", "f8"]),
         ]);
@@ -251,7 +251,7 @@ mod tests {
             target_square: 34, // c5
             promotion_piece: PieceType::NONE,
             is_capture: true
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wq, vec!["c5"]),
             (position.bp, vec!["a7", "b7", "c6", "e7", "f7", "g6", "h7", "h3"])
@@ -273,7 +273,7 @@ mod tests {
             target_square: 22, // g3
             promotion_piece: PieceType::NONE,
             is_capture: false
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["c7", "d6", "f4"]),
             (position.wp, vec!["e2", "g3", "b5"])
@@ -287,7 +287,7 @@ mod tests {
             target_square: 22, // g3
             promotion_piece: PieceType::NONE,
             is_capture: true
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["c7", "d6", "f4"]),
             (position.wp, vec!["e2", "b5"])
@@ -311,7 +311,7 @@ mod tests {
             target_square: 42, // c6
             promotion_piece: PieceType::NONE,
             is_capture: true
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["a7", "b7", "e7", "f7", "g6", "h7", "h3"]),
             (position.wp, vec!["a2", "c2", "f2", "g2", "c6", "e5"]),
@@ -325,7 +325,7 @@ mod tests {
             target_square: 32, // a5
             promotion_piece: PieceType::NONE,
             is_capture: false
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["a5", "b7", "e7", "f7", "g6", "h7", "h3"]),
             (position.en_passant_sq, vec!["a6"])
@@ -338,7 +338,7 @@ mod tests {
             target_square: 26, // c4
             promotion_piece: PieceType::NONE,
             is_capture: false
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wp, vec!["a2", "c4", "f2", "g2", "c6", "e5"]),
             (position.en_passant_sq, vec!["c3"])
@@ -355,7 +355,7 @@ mod tests {
             target_square: 58, // c8
             promotion_piece: PieceType::KNIGHT,
             is_capture: false
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wp, vec!["a2", "c2", "f2", "g2", "d5", "e5"]),
             (position.wn, vec!["c8"]),
@@ -371,7 +371,7 @@ mod tests {
             target_square: 59, // d8
             promotion_piece: PieceType::QUEEN,
             is_capture: true
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wp, vec!["a2", "c2", "f2", "g2", "d5", "e5"]),
             (position.wq, vec!["a3", "d8"]),
@@ -389,7 +389,7 @@ mod tests {
             target_square: 2, // c1
             promotion_piece: PieceType::NONE,
             is_capture: false
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wk, vec!["c1"]),
             (position.wr, vec!["d1", "h1"]),
@@ -406,7 +406,7 @@ mod tests {
             target_square: 7, // h1
             promotion_piece: PieceType::NONE,
             is_capture: true
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wk, vec!["e1"]),
             (position.wr, vec!["a1"]),
@@ -425,7 +425,7 @@ mod tests {
             target_square: 1, // b1
             promotion_piece: PieceType::NONE,
             is_capture: false
-        });
+        }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wk, vec!["e1"]),
             (position.wr, vec!["b1", "h1"]),

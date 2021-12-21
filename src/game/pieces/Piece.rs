@@ -1,12 +1,9 @@
-use std::ops::{Deref, DerefMut};
-
+use std::ops::Deref;
 use crate::constants::*;
 use crate::game::analysis::kingattackrayanalyzer::KingAttackRayAnalyzer;
-use crate::game::analysis::positionanalyzer::*;
 use crate::game::moves::gamemovelist::*;
 use crate::game::position::*;
-use crate::game::positionhelper::*;
-use crate::PIECE_ATTACK_SQUARES;
+use crate::game::PIECE_ATTACK_SQUARES;
 
 pub trait Piece {
     // Each piece type must override and provide a value

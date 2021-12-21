@@ -1,5 +1,9 @@
 
-use crate::game::positionhelper::PositionHelper;
+pub const NN_PLANE_COUNT_GAME_PIECE_INPUTS: usize = 12;  // 6 planes for each side's pieces
+pub const NN_PLANE_COUNT_AUX_INPUTS: usize = 7;   // 1x colour, 1x total move count, 2x P1 castling, 2x P2 castling, 1x fifty move count
+// One plane per target square and then 9 special planes (3 for underpromotion movement direction * 3 for each underpromotion piece (knight / bishop / rook)
+pub const NN_PLANE_COUNT_MOVEMENT_OUTPUTS: usize = 64 + (3 * 3);
+// pub const NN_PLANE_COUNT_MOVEMENT_OUTPUTS: usize = (8 * 7) + 8;   // 8 cardinal directions * up to 7 squares of movement + 8 knight movements
 
 pub const START_POSITION: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 

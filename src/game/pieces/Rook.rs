@@ -49,15 +49,17 @@ mod tests {
         let (_, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/8/2KB4/8/k7/8/Pb1r4/R2N4 w - - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Rook::calc_movements(&position, position.wr, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["b1", "c1", "d1", "a2"],
-            vec!["b1", "c1"]
+            "a1b1 a1c1"
         );
 
         LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Rook::calc_movements(&position, position.br, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["d1", "c2", "b2", "e2", "f2", "h2", "g2", "d3", "d4", "d5", "d6"],
-            vec!["d1", "c2", "e2", "f2", "h2", "g2", "d3", "d4", "d5", "d6"]
+            "d2c2 d2d1 d2d3 d2d4 d2d5 d2d6 d2e2 d2f2 d2g2 d2h2"
         );
 
 
@@ -65,15 +67,17 @@ mod tests {
         let (_, mut position, mut move_list, _, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/3RKB1R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Rook::calc_movements(&position, position.wr, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["a1", "b1", "c1", "d2", "d3", "d4", "d5", "e1", "f1", "g1", "h2", "h3"],
-            vec!["a1", "b1", "c1", "d2", "d3", "d4", "g1", "h2", "h3"]
+            "d1a1 d1b1 d1c1 d1d2 d1d3 d1d4 h1g1 h1h2 h1h3"
         );
 
         LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Rook::calc_movements(&position, position.br, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["a7", "b8", "c8", "d8", "e8", "f7", "g8"],
-            vec!["b8", "c8", "e8"]
+            "a8b8 a8c8 f8e8"
         );
     }
 }

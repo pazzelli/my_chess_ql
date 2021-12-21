@@ -48,11 +48,11 @@ impl LegalMovesTestHelper {
         attacked_squares
     }
 
-    pub fn check_attack_and_movement_squares(calc_movement_result: (u64, u64), expected_attack_squares: Vec<&str>, expected_movement_squares: Vec<&str>) {
-        let (attacked_squares, movement_squares) = calc_movement_result;
+    pub fn check_attack_and_movement_squares(calc_movement_result: (u64, u64), move_list: &GameMoveList, expected_attack_squares: Vec<&str>, expected_movement_square_list_str: &str) {
+        let (attacked_squares, _movement_squares) = calc_movement_result;
 
         assert_eq!(attacked_squares, PositionHelper::bitboard_from_algebraic(expected_attack_squares));
-        assert_eq!(movement_squares, PositionHelper::bitboard_from_algebraic(expected_movement_squares));
+        assert_eq!(format!("{:?}", move_list), expected_movement_square_list_str);
     }
 
     pub fn generate_pin_ray_board(pin_rays: Vec<(&str, Vec<&str>)>) -> [u64; 64] {

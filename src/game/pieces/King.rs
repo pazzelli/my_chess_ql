@@ -73,15 +73,17 @@ mod tests {
         let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["d1", "d2", "e2", "f2", "f1"],
-            vec![]
+            ""
         );
 
         let enemy_attacked_squares = LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["d8", "d7", "e7", "f7", "f8"],
-            vec![]
+            ""
         );
 
 
@@ -89,8 +91,9 @@ mod tests {
         let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5nP/P1P2pP1/3RKB1R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["d1", "d2", "e2", "f2", "f1"],
-            vec!["d2", "f2"]
+            "e1d2 e1f2"
         );
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
@@ -104,8 +107,9 @@ mod tests {
         let enemy_attacked_squares = LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["f8", "f7", "g7", "h7", "h8"],
-            vec!["h8"]
+            "g8h8"
         );
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
@@ -121,8 +125,9 @@ mod tests {
         let (enemy_attacked_squares, position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("8/4k3/8/8/4R3/8/8/4K3 b KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["d8", "d7", "d6", "f8", "f7", "f6", "e6", "e8"],
-            vec!["d8", "d7", "d6", "f8", "f7", "f6"]
+            "e7d6 e7d7 e7d8 e7f6 e7f7 e7f8"
         );
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
@@ -142,8 +147,9 @@ mod tests {
         let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r3k2r/8/8/8/8/3bQ3/8/R3K2R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["d1", "d2", "e2", "f2", "f1"],
-            vec!["d1", "d2", "f2", "c1"]
+            "e1c1 e1d1 e1d2 e1f2"
         );
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
@@ -157,8 +163,9 @@ mod tests {
         position.king_in_check = true;
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["f8", "f7", "e7", "d7", "d8"],
-            vec!["d8", "d7", "f8", "f7"]
+            "e8d7 e8d8 e8f7 e8f8"
         );
         LegalMovesTestHelper::check_king_attack_analysis(
             &king_attack_analyzer,
@@ -173,16 +180,18 @@ mod tests {
         let (enemy_attacked_squares, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r3k1nr/8/8/8/3bb3/8/8/R3K2R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["d1", "d2", "e2", "f2", "f1"],
-            vec!["d1", "d2", "e2", "f1", "c1"]
+            "e1c1 e1d1 e1d2 e1e2 e1f1"
         );
 
         let enemy_attacked_squares = LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
         // position.king_in_check = true;
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["f8", "f7", "e7", "d7", "d8"],
-            vec!["f8", "f7", "e7", "d7", "d8", "c8"]
+            "e8c8 e8d7 e8d8 e8e7 e8f7 e8f8"
         );
 
         // println!("{:?}", move_list);

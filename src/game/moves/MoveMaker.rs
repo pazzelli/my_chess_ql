@@ -54,7 +54,7 @@ impl MoveMaker {
         self.old_pin_ray_masks = position.pin_ray_masks.clone();
         self.old_check_ray_mask = position.check_ray_mask;
     }
-    
+
     #[inline(always)]
     fn calc_make_move_common_objects(white_to_move: bool, is_pawn_move: bool, en_passant_sq: u64, game_move: &GameMove) -> (u64, u64) {
         let movement_board = SINGLE_BITBOARDS[game_move.source_square as usize] | SINGLE_BITBOARDS[game_move.target_square as usize];
@@ -264,8 +264,9 @@ mod tests {
         // g3+
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["a6", "a4", "b4", "b5", "b6"],
-            vec!["a6", "a4"]
+            "a5a4 a5a6"
         );
         move_maker.make_move(&mut position, &GameMove {
             piece: PieceType::PAWN,
@@ -292,12 +293,13 @@ mod tests {
             (position.bp, vec!["c7", "d6", "f4"]),
             (position.wp, vec!["e2", "b5"])
         ]);
-        // let mut king_attack_analyzer = KingAttackRayAnalyzer::default();
+        move_list.clear();
         let enemy_attacked_squares = LegalMovesTestHelper::calc_enemy_attacked_squares(&mut position, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             King::calc_movements(&position, position.wk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer),
+            &move_list,
             vec!["a6", "a4", "b4", "b5", "b6"],
-            vec!["a6", "a4"]
+            "a5a4 a5a6"
         );
     }
 
@@ -432,6 +434,60 @@ mod tests {
         ]);
         // Only queenside castling should be removed
         assert_eq!(position.castling_rights, PositionHelper::bitboard_from_algebraic(vec!["g1"]));
+    }
+
+    #[test]
+    fn test_fifty_move_count() {
+        let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3K2R w KQ - 1 2"));
+        // 1. o-o-o ...
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::KING,
+            source_square: 4, // e1
+            target_square: 2, // c1
+            promotion_piece: PieceType::NONE,
+            is_capture: false
+        }, false);
+        assert_eq!(position.fifty_move_count, 2);
+
+        // 1. ... Nxh1 (capture one of the rooks)
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::KNIGHT,
+            source_square: 22, // g3
+            target_square: 7, // h1
+            promotion_piece: PieceType::NONE,
+            is_capture: true
+        }, false);
+        assert_eq!(position.fifty_move_count, 0);
+
+        // 2. d6 ...
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::PAWN,
+            source_square: 35, // d5
+            target_square: 43, // d6
+            promotion_piece: PieceType::NONE,
+            is_capture: false
+        }, false);
+        assert_eq!(position.fifty_move_count, 0);
+
+        // 2. ... exd6
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::PAWN,
+            source_square: 52, // d5
+            target_square: 43, // d6
+            promotion_piece: PieceType::NONE,
+            is_capture: true
+        }, false);
+        assert_eq!(position.fifty_move_count, 0);
+
+        // 3. Qb3
+        move_maker.make_move(&mut position, &GameMove {
+            piece: PieceType::QUEEN,
+            source_square: 16, // d5
+            target_square: 17, // d6
+            promotion_piece: PieceType::NONE,
+            is_capture: false
+        }, false);
+        assert_eq!(position.fifty_move_count, 1);
     }
 
     #[test]

@@ -55,15 +55,17 @@ mod tests {
         let (_, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/8/Q5np/P1P2PP1/3RKB1R w - - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Queen::calc_movements(&position, position.wq, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["c1", "a2", "b2", "b3", "c3", "d3", "e3", "f3", "g3", "a4", "b4", "a5", "c5", "a6", "a7"],
-            vec!["c1", "b2", "b3", "c3", "d3", "e3", "f3", "g3", "a4", "b4", "a5", "c5", "a6", "a7"]
+            "a3a4 a3a5 a3a6 a3a7 a3b2 a3b3 a3b4 a3c1 a3c3 a3c5 a3d3 a3e3 a3f3 a3g3"
         );
 
         LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Queen::calc_movements(&position, position.bq, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["a8", "f8", "e7", "b8", "c8", "e8", "a5", "b6", "c7", "d7", "d6", "d5"],
-            vec!["b8", "c8", "e8", "a5", "b6", "c7", "d7", "d6", "d5"]
+            "d8a5 d8b6 d8b8 d8c7 d8c8 d8d5 d8d6 d8d7 d8e8"
         );
     }
 }

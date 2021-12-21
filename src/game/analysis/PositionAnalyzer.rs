@@ -108,8 +108,6 @@ mod tests {
             0,
             false
         );
-
-        // TODO: add something more exciting than just the starting position
     }
 
     #[test]
@@ -140,12 +138,13 @@ mod tests {
             0,
             false
         );
-        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
-        let (bishop_attacks, bishop_movements) = Bishop::calc_movements(&position, position.bb, &mut move_list, 0, &mut king_attack_analyzer);
+        let (king_attacks, _) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        let (bishop_attacks, _) = Bishop::calc_movements(&position, position.bb, &mut move_list, 0, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
-            (king_attacks | bishop_attacks, king_movements | bishop_movements),
+            (king_attacks | bishop_attacks, 0),
+            &move_list,
             vec!["d8", "d7", "f8", "f7", "e7", "a3", "b4", "c5", "d6", "f6", "g5", "h4"],
-            vec!["d8", "d7", "f8", "f7"]
+            "e8d7 e8d8 e8f7 e8f8"
         );
 
         LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), Some(&mut king_attack_analyzer));
@@ -169,13 +168,14 @@ mod tests {
             false
         );
 
-        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
-        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
-        let (bishop_attacks, bishop_movements) = Bishop::calc_movements(&position, position.bb, &mut move_list, 0, &mut king_attack_analyzer);
+        let (pawn_attacks, _) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
+        let (king_attacks, _) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        let (bishop_attacks, _) = Bishop::calc_movements(&position, position.bb, &mut move_list, 0, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
-            (king_attacks | bishop_attacks | pawn_attacks, king_movements | bishop_movements | pawn_movements),
+            (king_attacks | bishop_attacks | pawn_attacks, 0),
+            &move_list,
             vec!["d8", "d7", "f8", "f7", "e7", "c6", "e6", "a3", "b4", "c5", "d6", "f6", "g5", "h4"],
-            vec!["d8", "f8", "f7", "c6"]
+            "d7c6 e8d8 e8f7 e8f8"
         );
     }
 
@@ -191,12 +191,13 @@ mod tests {
             false
         );
 
-        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
-        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        let (pawn_attacks, _) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
+        let (king_attacks, _) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
-            (king_attacks | pawn_attacks, king_movements | pawn_movements),
+            (king_attacks | pawn_attacks, 0),
+            &move_list,
             vec!["d8", "d7", "f8", "f7", "e7", "e6"],
-            vec!["d8", "f8", "e6"]
+            "d7e6 e8d8 e8f8"
         );
 
 
@@ -210,11 +211,12 @@ mod tests {
             false
         );
 
-        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        let (king_attacks, _) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
-            (king_attacks, king_movements),
+            (king_attacks, 0),
+            &move_list,
             vec!["d8", "d7", "d6", "e8", "e6", "f8", "f7", "f6"],
-            vec!["d8", "d7", "d6", "f8", "f7", "f6"]
+            "e7d6 e7d7 e7d8 e7f6 e7f7 e7f8"
         );
     }
 
@@ -230,12 +232,11 @@ mod tests {
             false
         );
 
-        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
-        // let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
-            (pawn_attacks, pawn_movements),
+            Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["d3"],
-            vec!["d3"]
+            "e4d3"
         );
 
 
@@ -249,12 +250,13 @@ mod tests {
             false
         );
 
-        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
-        let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
+        let (pawn_attacks, _) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
+        let (king_attacks, _) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
-            (king_attacks | pawn_attacks, king_movements | pawn_movements),
+            (king_attacks | pawn_attacks, 0),
+            &move_list,
             vec!["a6", "a5", "a4", "b4", "b6", "c6", "c5", "c4", "d3"],
-            vec!["a5", "a4", "b4", "b6", "c6", "d3"]
+            "b5a4 b5a5 b5b4 b5b6 b5c6 e4d3"
         );
     }
 
@@ -270,12 +272,11 @@ mod tests {
             true
         );
 
-        let (pawn_attacks, pawn_movements) = Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer);
-        // let (king_attacks, king_movements) = King::calc_movements(&position, position.bk, &mut move_list, enemy_attacked_squares, &mut king_attack_analyzer);
         LegalMovesTestHelper::check_attack_and_movement_squares(
-            (pawn_attacks, pawn_movements),
+            Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["d3", "f3"],
-            vec!["e3"]
+            "e4e3"
         );
     }
 

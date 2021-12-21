@@ -143,15 +143,17 @@ mod tests {
         let (_, mut position, mut move_list, mut king_attack_analyzer, _) = LegalMovesTestHelper::init_test_position_from_fen_str(None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Pawn::calc_movements(&position, position.wp, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"],
-            vec!["a3", "a4", "b3", "b4", "c3", "c4", "d3", "d4", "e3", "e4", "f3", "f4", "g3", "g4", "h3", "h4"]
+            "a2a3 a2a4 b2b3 b2b4 c2c3 c2c4 d2d3 d2d4 e2e3 e2e4 f2f3 f2f4 g2g3 g2g4 h2h3 h2h4"
         );
 
         LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Pawn::calc_movements(&position, position.bp, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"],
-            vec!["a6", "a5", "b6", "b5", "c6", "c5", "d6", "d5", "e6", "e5", "f6", "f5", "g6", "g5", "h6", "h5"]
+            "a7a5 a7a6 b7b5 b7b6 c7c5 c7c6 d7d5 d7d6 e7e5 e7e6 f7f5 f7f6 g7g5 g7g6 h7h5 h7h6"
         );
 
 
@@ -159,15 +161,17 @@ mod tests {
         let (_, mut position, mut move_list, _, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pp2ppbp/2p2np1/2pPP1B1/51b1/Q4N1P/P1P2PP1/3RKB1R w KQkq - 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Pawn::calc_movements(&position,position.wp, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["b3", "d3", "e3", "f3", "g3", "h3", "g4", "c6", "d6", "e6", "f6"],
-            vec!["c3", "c4", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]
+            "c2c3 c2c4 d5c6 d5d6 e5e6 e5f6 g2g3 h3g4 h3h4"
         );
 
         LegalMovesTestHelper::switch_sides(&mut position, Some(&mut move_list), None);
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Pawn::calc_movements(&position,position.bp, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["a6", "b6", "c6", "d6", "e6", "f6", "g6", "b5", "d5", "f5", "h5", "b4", "d4"],
-            vec!["a6", "a5", "b6", "b5", "c4", "d5", "e6", "h6", "h5"]
+            "a7a5 a7a6 b7b5 b7b6 c5c4 c6d5 e7e6 h7h5 h7h6"
         );
 
 
@@ -175,8 +179,9 @@ mod tests {
         let (_, position, mut move_list, _, _) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2"));
         LegalMovesTestHelper::check_attack_and_movement_squares(
             Pawn::calc_movements(&position, position.wp, &mut move_list, 0, &mut king_attack_analyzer),
+            &move_list,
             vec!["b6", "c6", "d6", "e6", "f6", "a8", "c8", "e3", "f3", "g3", "h3", "g4"],
-            vec!["a6", "b6", "a8", "b8", "c6", "d6", "e6", "f6", "g3", "g4", "h4"]
+            "a5a6 a5b6 b7a8b b7a8n b7a8q b7a8r b7b8b b7b8n b7b8q b7b8r c5b6 d5c6 d5d6 e5e6 e5f6 g2g3 h3g4 h3h4"
         );
     }
 

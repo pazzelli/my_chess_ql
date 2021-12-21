@@ -20,7 +20,7 @@ pub struct Position {
     pub white_to_move: bool,
     pub king_in_check: bool, pub king_in_double_check: bool,
     pub is_stalemate: bool, pub is_checkmate: bool,
-    pub fifty_move_count: u8,
+    pub fifty_move_count: u8,   // counted here in plies, so it must reach 100 before a draw declared
     pub move_number: u16,
 }
 

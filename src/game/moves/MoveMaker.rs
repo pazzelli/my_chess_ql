@@ -209,6 +209,7 @@ impl MoveMaker {
 
 #[cfg(test)]
 mod tests {
+    use arrayvec::ArrayString;
     use crate::game::pieces::king::King;
     use crate::game::pieces::piece::Piece;
     use crate::test::legalmoveshelper::LegalMovesTestHelper;
@@ -225,7 +226,8 @@ mod tests {
             source_square: 36, // e5
             target_square: 45, // f6
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+           extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bn, vec!["g3"]),
@@ -238,7 +240,8 @@ mod tests {
             source_square: 56, // a8
             target_square: 58, // c8
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.br, vec!["c8", "f8"]),
@@ -250,7 +253,8 @@ mod tests {
             source_square: 16, // a3
             target_square: 34, // c5
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wq, vec!["c5"]),
@@ -273,7 +277,8 @@ mod tests {
             source_square: 14, // g2
             target_square: 22, // g3
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["c7", "d6", "f4"]),
@@ -287,7 +292,8 @@ mod tests {
             source_square: 31, // h4
             target_square: 22, // g3
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["c7", "d6", "f4"]),
@@ -312,7 +318,8 @@ mod tests {
             source_square: 35, // d5
             target_square: 42, // c6
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["a7", "b7", "e7", "f7", "g6", "h7", "h3"]),
@@ -326,7 +333,8 @@ mod tests {
             source_square: 48, // a7
             target_square: 32, // a5
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.bp, vec!["a5", "b7", "e7", "f7", "g6", "h7", "h3"]),
@@ -339,7 +347,8 @@ mod tests {
             source_square: 10, // c2
             target_square: 26, // c4
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wp, vec!["a2", "c4", "f2", "g2", "c6", "e5"]),
@@ -356,7 +365,8 @@ mod tests {
             source_square: 50, // c7
             target_square: 58, // c8
             promotion_piece: PieceType::KNIGHT,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wp, vec!["a2", "c2", "f2", "g2", "d5", "e5"]),
@@ -372,7 +382,8 @@ mod tests {
             source_square: 50, // c7
             target_square: 59, // d8
             promotion_piece: PieceType::QUEEN,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wp, vec!["a2", "c2", "f2", "g2", "d5", "e5"]),
@@ -390,7 +401,8 @@ mod tests {
             source_square: 4, // e1
             target_square: 2, // c1
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wk, vec!["c1"]),
@@ -407,7 +419,8 @@ mod tests {
             source_square: 22, // g3
             target_square: 7, // h1
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wk, vec!["e1"]),
@@ -426,7 +439,8 @@ mod tests {
             source_square: 0, // a1
             target_square: 1, // b1
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         MoveMakerTestHelper::check_make_move_result(vec![
             (position.wk, vec!["e1"]),
@@ -445,7 +459,8 @@ mod tests {
             source_square: 4, // e1
             target_square: 2, // c1
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         assert_eq!(position.fifty_move_count, 2);
 
@@ -455,7 +470,8 @@ mod tests {
             source_square: 22, // g3
             target_square: 7, // h1
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         }, false);
         assert_eq!(position.fifty_move_count, 0);
 
@@ -465,7 +481,8 @@ mod tests {
             source_square: 35, // d5
             target_square: 43, // d6
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         assert_eq!(position.fifty_move_count, 0);
 
@@ -475,7 +492,8 @@ mod tests {
             source_square: 52, // d5
             target_square: 43, // d6
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         }, false);
         assert_eq!(position.fifty_move_count, 0);
 
@@ -485,7 +503,8 @@ mod tests {
             source_square: 16, // d5
             target_square: 17, // d6
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         }, false);
         assert_eq!(position.fifty_move_count, 1);
     }
@@ -499,7 +518,8 @@ mod tests {
             source_square: 36, // e5
             target_square: 45, // f6
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         });
 
         // Qxc5
@@ -508,7 +528,8 @@ mod tests {
             source_square: 16, // a3
             target_square: 34, // c5
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         });
 
         // d6
@@ -517,7 +538,8 @@ mod tests {
             source_square: 5, // f1
             target_square: 12, // e2
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         });
 
         // o-o-o
@@ -526,7 +548,8 @@ mod tests {
             source_square: 4, // e1
             target_square: 2, // c1
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         });
 
         let (_, mut position, _, _, mut move_maker) = LegalMovesTestHelper::init_test_position_from_fen_str(Some("r2q1rk1/ppP1ppbp/5np1/3PP1B1/8/Q5np/P1P2PP1/R3KB1R w Q - 1 2"));
@@ -536,7 +559,8 @@ mod tests {
             source_square: 50, // c7
             target_square: 59, // d8
             promotion_piece: PieceType::QUEEN,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         });
     }
 }

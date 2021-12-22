@@ -186,6 +186,7 @@ impl PositionConverter {
 
 #[cfg(test)]
 mod tests {
+    use arrayvec::ArrayString;
     use crate::game::analysis::positionanalyzer::PositionAnalyzer;
     use super::*;
 
@@ -309,6 +310,7 @@ mod tests {
                 target_square,
                 is_capture: false,
                 promotion_piece,
+                extended_move_san: ArrayString::default(),
             },
             &mut movement_planes,
             flip_for_black

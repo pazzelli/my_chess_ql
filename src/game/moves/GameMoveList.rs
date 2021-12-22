@@ -1,4 +1,5 @@
 use std::fmt::*;
+use arrayvec::ArrayString;
 use regex::Regex;
 use crate::constants::*;
 use crate::game::moves::gamemove::*;
@@ -49,7 +50,8 @@ impl GameMoveList {
             source_square,
             target_square,
             promotion_piece,
-            is_capture
+            is_capture,
+            extended_move_san: ArrayString::<16>::new(),
         };
 
         // self.piece[self.list_len] = piece;
@@ -62,7 +64,7 @@ impl GameMoveList {
     }
 
     // Finds the correct game move in the current position based on the input move in SAN format
-    pub fn get_move_by_partial_san(&self, move_partial_san: &str) -> Option<GameMove> {
+    pub fn get_move_by_partial_san(&mut self, move_partial_san: &str) -> Option<GameMove> {
         if self.list_len <= 0 { return None };
 
         for i in 0..self.list_len {

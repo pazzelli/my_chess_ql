@@ -16,11 +16,6 @@ use crate::neural::positionconverter::*;
 
 const MIN_ELO_RATING: i16 = 2200;
 
-lazy_static! {
-    static ref GAME_MOVE_NUMBER: Regex = Regex::new(r"^[0-9]+\.").unwrap();
-    static ref GAME_MOVE_EXTENDED_SAN: Regex = Regex::new(r"^([BNKQRP]?)([a-h]?)([1-8]?)(x?)([a-h][1-8])(=[BNQR])?").unwrap();
-}
-
 pub struct PGNReader {
     file: BufReader<File>,
     buf: Vec<u8>,
@@ -179,7 +174,7 @@ impl PGNReader {
                         _ => {} // don't care about any other headers for now
                     }
 
-                } else if GAME_MOVE_NUMBER.find(line.as_str()).is_some() || game_moves_found {
+                } else if match line.chars().next().unwrap() {'0'..='9'=> true, _ => false } || game_moves_found {
                     // Once game moves are found, keep reading more lines until a blank is encountered
                     // Game moves
                     game_moves_found = true;

@@ -22,6 +22,7 @@ regex = "0.2"
 rand = "0.8.4"
 pyo3 = "0.15.1"
 unroll = "0.1.5"
+arrayvec = "0.7.2"
 #bitintr = "0.3.0"
 #rayon = "1.5.1"
 #core_simd = { git = "https://github.com/rust-lang/portable-simd" }

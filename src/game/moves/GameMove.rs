@@ -3,6 +3,7 @@ use crate::constants::*;
 use crate::game::positionhelper::*;
 use std::fmt::*;
 use std::ops::Deref;
+use arrayvec::ArrayString;
 
 // #[derive(Clone, Copy, Debug)]
 #[derive(Clone, Copy)]
@@ -11,7 +12,8 @@ pub struct GameMove {
     pub source_square: u8,
     pub target_square: u8,
     pub promotion_piece: PieceType,
-    pub is_capture: bool
+    pub is_capture: bool,
+    pub extended_move_san: ArrayString::<16>
 }
 
 impl Default for GameMove {
@@ -21,7 +23,8 @@ impl Default for GameMove {
             source_square: 0,
             target_square: 0,
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::<16>::new(),
         }
     }
 }
@@ -39,36 +42,36 @@ impl GameMove {
         }
     }
 
-    pub fn get_extended_san_move_string(&self) -> String {
+    pub fn set_extended_san_move_string(&mut self) {
+        self.extended_move_san.clear();
+
         if self.piece == PieceType::KING {
             let square_diff = self.source_square as i16 - self.target_square as i16;
-            if square_diff == 2 { return String::from("O-O-O"); }
-            if square_diff == -2 { return String::from("O-O"); }
+            if square_diff == 2 { self.extended_move_san.push_str("O-O-O"); return; }
+            if square_diff == -2 { self.extended_move_san.push_str("O-O"); return; }
         }
 
-        let mut extended_move_format = String::with_capacity(10);
-
-        extended_move_format.push(GameMove::get_piece_type_letter(self.piece));
+        self.extended_move_san.push(GameMove::get_piece_type_letter(self.piece));
         // Doing this each character at a time is significantly faster since these functions
         // don't need to allocate their own strings internally and that turns out to be a bottleneck
-        extended_move_format.push(PositionHelper::algebraic_file_from_index(self.source_square));
-        extended_move_format.push(PositionHelper::algebraic_rank_from_index(self.source_square));
-        if self.is_capture { extended_move_format.push('x'); };
-        extended_move_format.push(PositionHelper::algebraic_file_from_index(self.target_square));
-        extended_move_format.push(PositionHelper::algebraic_rank_from_index(self.target_square));
+        self.extended_move_san.push(PositionHelper::algebraic_file_from_index(self.source_square));
+        self.extended_move_san.push(PositionHelper::algebraic_rank_from_index(self.source_square));
+        if self.is_capture { self.extended_move_san.push('x'); };
+        self.extended_move_san.push(PositionHelper::algebraic_file_from_index(self.target_square));
+        self.extended_move_san.push(PositionHelper::algebraic_rank_from_index(self.target_square));
         if self.promotion_piece != PieceType::NONE {
-            extended_move_format.push('=');
-            extended_move_format.push(GameMove::get_piece_type_letter(self.promotion_piece));
+            self.extended_move_san.push('=');
+            self.extended_move_san.push(GameMove::get_piece_type_letter(self.promotion_piece));
         }
-
-        extended_move_format
     }
 
     // Checks if this move is a match to the partial movement input in Standard Algebraic Notation
     // (e.g. "Nxf3" would match "Ng1xf3" or "Ng1xf3+")
-    pub fn is_partial_san_match(&self, partial_san: &str) -> bool {
-        let extended_san_string = self.get_extended_san_move_string();
-        let mut extended_san_iter = extended_san_string.chars();
+    pub fn is_partial_san_match(&mut self, partial_san: &str) -> bool {
+        // Set the extended SAN move string just-in-time
+        self.set_extended_san_move_string();
+
+        let mut extended_san_iter = self.extended_move_san.chars();
 
         let mut partial_san_iter = partial_san.chars().peekable();
         // The loop below checks the back half of the string up to and incl. the dest. square
@@ -79,7 +82,7 @@ impl GameMove {
             let partial_san_char = partial_san_char.unwrap();
             match partial_san_char {
                 // For castling moves, just match the whole string directly
-                'O' => return (extended_san_string.len() >= (partial_san.len() - 1)) && partial_san.starts_with(extended_san_string.as_str()),
+                'O' => return (self.extended_move_san.len() >= (partial_san.len() - 1)) && partial_san.starts_with(self.extended_move_san.as_str()),
 
                 // Throw out any check / checkmate or annotation markers
                 '+' | '#' | '?' | '!' => { continue; },
@@ -177,27 +180,33 @@ mod tests {
             source_square: 6,
             target_square: 21,
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         };
-        assert_eq!(g.get_extended_san_move_string(), "Ng1f3");
+        g.set_extended_san_move_string();
+        assert_eq!(g.extended_move_san.as_str(), "Ng1f3");
 
         g = GameMove {
             piece: PieceType::BISHOP,
             source_square: 0,
             target_square: 63,
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         };
-        assert_eq!(g.get_extended_san_move_string(), "Ba1xh8");
+        g.set_extended_san_move_string();
+        assert_eq!(g.extended_move_san.as_str(), "Ba1xh8");
 
         g = GameMove {
             piece: PieceType::PAWN,
             source_square: 53,
             target_square: 62,
             promotion_piece: PieceType::KNIGHT,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         };
-        assert_eq!(g.get_extended_san_move_string(), "Pf7xg8=N");
+        g.set_extended_san_move_string();
+        assert_eq!(g.extended_move_san.as_str(), "Pf7xg8=N");
     }
 
     #[test]
@@ -207,7 +216,8 @@ mod tests {
             source_square: 6,
             target_square: 21,
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         };
         // Ng1f3
         assert_eq!(g.is_partial_san_match("Ng1f3"), true);
@@ -227,7 +237,8 @@ mod tests {
             source_square: 0,
             target_square: 63,
             promotion_piece: PieceType::NONE,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         };
         // "Ba1xh8"
         assert_eq!(g.is_partial_san_match("Ba1xh8"), true);
@@ -243,7 +254,8 @@ mod tests {
             source_square: 53,
             target_square: 62,
             promotion_piece: PieceType::KNIGHT,
-            is_capture: true
+            is_capture: true,
+            extended_move_san: ArrayString::new()
         };
         // Pf7xg8=N
         assert_eq!(g.is_partial_san_match("Pf7xg8=N"), true);
@@ -261,7 +273,8 @@ mod tests {
             source_square: 4,
             target_square: 2,
             promotion_piece: PieceType::NONE,
-            is_capture: false
+            is_capture: false,
+            extended_move_san: ArrayString::new()
         };
         // O-O-O
         assert_eq!(g.is_partial_san_match("O-O-O"), true);

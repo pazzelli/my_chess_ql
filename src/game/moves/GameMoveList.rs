@@ -61,12 +61,12 @@ impl GameMoveList {
         self.list_len += 1;
     }
 
-    // TODO: update this to not use Regexes anymore (they are way too slow)
-    pub fn get_move_by_extended_san(&self, move_extended_san_re: Regex) -> Option<GameMove> {
+    // Finds the correct game move in the current position based on the input move in SAN format
+    pub fn get_move_by_partial_san(&self, move_partial_san: &str) -> Option<GameMove> {
         if self.list_len <= 0 { return None };
 
         for i in 0..self.list_len {
-            if move_extended_san_re.find(self.move_list[i].get_extended_san_move_string().as_str()).is_some() {
+            if self.move_list[i].is_partial_san_match(move_partial_san) {
                 return Some(self.move_list[i]);
             }
         }

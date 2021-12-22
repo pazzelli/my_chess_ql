@@ -5,14 +5,20 @@ import my_chess_ql
 class Training:
     @staticmethod
     def main(argv):
-        # print(my_chess_ql.get_positions_from_pgn_file("/Users/John/Documents/chessdata/bundesliga2000.pgn"))
-        # print(my_chess_ql.get_positions_from_pgn_file("/Users/John/Documents/chessdata/bundesliga2000.pgn"))
+        # noinspection PyUnresolvedReferences
         pgn = my_chess_ql.NeuralTrainer("/Users/John/Documents/chessdata/bundesliga2000.pgn")
-        i = 0
         while True:
             try:
-                line = str(pgn.__next__())
-                print(line)
+                nn_data = pgn.__next__()
+                (input_piece_planes, input_aux_planes, output_planes, output_target, game_result) = nn_data
+
+                print("input_piece_planes: \n{}".format(input_piece_planes))
+                print("input_aux_planes: \n{}".format(input_aux_planes))
+                print("output_planes: \n{}".format(output_planes))
+                print("output_target: \n{}".format(output_target))
+                print("game_result: \n{}".format(game_result))
+                # print(nn_data)
+                break
             except StopIteration:
                 break
 

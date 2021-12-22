@@ -6,7 +6,7 @@ use crate::game::moves::gamemove::GameMove;
 use crate::game::moves::gamemovelist::GameMoveList;
 use crate::game::positionhelper::PositionHelper;
 
-struct PositionConverter {}
+pub struct PositionConverter {}
 
 impl PositionConverter {
     // Encodes the position of a single piece on the input planes for the neural net
@@ -105,7 +105,7 @@ impl PositionConverter {
     // and to encode the target output)
     // Output planes are encoded using a simple source square vs. target square scheme, with underpromotion
     // moves encoded separately onto their own planes
-    fn encode_movement(game_move: &GameMove, movement_planes: &mut [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6]) {
+    fn encode_movement(game_move: &GameMove, movement_planes: &mut [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6], flip_for_black: bool) {
         // Default the plane number to the target square of the piece movement
         let mut plane_num = game_move.target_square as usize;
 
@@ -124,7 +124,11 @@ impl PositionConverter {
             plane_num = 64 + ((3 * (file_diff + 1)) + (game_move.promotion_piece as i8 - 1)) as usize;
         }
 
-        movement_planes[(plane_num << 6) + game_move.source_square as usize] = 1;
+        // Ensure the board is flipped vertically if it's black's turn
+        let flip_for_black = flip_for_black as u8;
+        let square_offset = (flip_for_black * VERTICAL_FLIP_INDICES[game_move.source_square as usize]) + ((1 - flip_for_black) * game_move.source_square);
+
+        movement_planes[(plane_num << 6) + square_offset as usize] = 1;
 
 
         // // The approach below is more similar to the AlphaZero paper but it seems unnecessarily tedious
@@ -152,12 +156,12 @@ impl PositionConverter {
 
     // Encodes all possible game moves for a given position into a set of output planes
     // This will be used to mask out invalid output values before re-normalizing to get the final movement probabilities
-    fn encode_movement_output_planes_for_nn (possible_moves: &GameMoveList) -> [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6] {
+    fn encode_movement_output_planes_for_nn (possible_moves: &GameMoveList, flip_for_black: bool) -> [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6] {
         let mut movement_planes = [0u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6];
 
         for i in 0..possible_moves.list_len {
             let game_move = &possible_moves.move_list[i];
-            PositionConverter::encode_movement(&game_move, &mut movement_planes);
+            PositionConverter::encode_movement(&game_move, &mut movement_planes, flip_for_black);
         }
         movement_planes
     }
@@ -167,15 +171,15 @@ impl PositionConverter {
         let piece_planes = PositionConverter::encode_piece_planes_for_nn(&position);
         let aux_planes = PositionConverter::encode_aux_planes_for_nn(&position);
 
-        let movement_output_planes = PositionConverter::encode_movement_output_planes_for_nn(&possible_moves);
+        let movement_output_planes = PositionConverter::encode_movement_output_planes_for_nn(&possible_moves, !position.white_to_move);
 
         (piece_planes, aux_planes, movement_output_planes)
     }
 
     // Converts a target move (for supervised learning) into the set of output planes for the neural network
-    pub fn convert_target_move_for_nn (target_move: &GameMove) -> [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6] {
+    pub fn convert_target_move_for_nn (target_move: &GameMove, flip_for_black: bool) -> [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6] {
         let mut target_output = [0; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6];
-        PositionConverter::encode_movement(&target_move, &mut target_output);
+        PositionConverter::encode_movement(&target_move, &mut target_output, flip_for_black);
         target_output
     }
 }
@@ -251,7 +255,7 @@ mod tests {
                 game_move.piece = PieceType::QUEEN;
                 game_move.target_square = cardinal_moves.trailing_zeros() as u8;
 
-                PositionConverter::encode_movement(&game_move, &mut movement_planes);
+                PositionConverter::encode_movement(&game_move, &mut movement_planes, false);
 
                 // Test underpromotions - these should be encoded in separate planes
                 if (game_move.target_square >= 56 && game_move.source_square >= 48 && game_move.source_square < 56)
@@ -260,7 +264,7 @@ mod tests {
                     game_move.piece = PieceType::PAWN;
                     for promotion_piece in [PieceType::KNIGHT, PieceType::BISHOP, PieceType::ROOK] {
                         game_move.promotion_piece = promotion_piece;
-                        PositionConverter::encode_movement(&game_move, &mut movement_planes);
+                        PositionConverter::encode_movement(&game_move, &mut movement_planes, false);
                         game_move.promotion_piece = PieceType::NONE;
 
                         target_count += 1;
@@ -274,7 +278,7 @@ mod tests {
                 game_move.piece = PieceType::KNIGHT;
                 game_move.target_square = knight_moves.trailing_zeros() as u8;
 
-                PositionConverter::encode_movement(&game_move, &mut movement_planes);
+                PositionConverter::encode_movement(&game_move, &mut movement_planes, false);
                 knight_moves &= knight_moves - 1;
             }
 
@@ -293,5 +297,64 @@ mod tests {
                 current_count
             );
         }
+    }
+
+    fn test_encode_movement_helper(piece: PieceType, source_square: u8, target_square: u8, promotion_piece: PieceType, flip_for_black: bool, expected_index: usize) {
+        let mut movement_planes = [0u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6];
+
+        PositionConverter::encode_movement(
+            &GameMove {
+                piece,
+                source_square,
+                target_square,
+                is_capture: false,
+                promotion_piece,
+            },
+            &mut movement_planes,
+            flip_for_black
+        );
+        assert_eq!(movement_planes[expected_index], 1);
+    }
+
+    #[test]
+    fn test_encode_movement_output_plane_locations() {
+        // Basic moves for white
+        test_encode_movement_helper(PieceType::QUEEN, 0, 0, PieceType::NONE, false, 0);
+        test_encode_movement_helper(PieceType::QUEEN, 0, 1, PieceType::NONE, false, 64);
+        test_encode_movement_helper(PieceType::QUEEN, 1, 1, PieceType::NONE, false, 65);
+        test_encode_movement_helper(PieceType::QUEEN, 37, 40, PieceType::NONE, false, 2597);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 40, PieceType::NONE, false, 2623);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 63, PieceType::NONE, false, 4095);
+
+        // Basic moves for black - the source square index should be flipped vertically
+        test_encode_movement_helper(PieceType::QUEEN, 0, 0, PieceType::NONE, true, 56);
+        test_encode_movement_helper(PieceType::QUEEN, 0, 1, PieceType::NONE, true, 120);
+        test_encode_movement_helper(PieceType::QUEEN, 1, 1, PieceType::NONE, true, 121);
+        test_encode_movement_helper(PieceType::QUEEN, 37, 40, PieceType::NONE, true, 2589);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 40, PieceType::NONE, true, 2567);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 63, PieceType::NONE, true, 4039);
+
+        // Promotions for white - only underpromotions should be placed on the additional output planes
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::QUEEN, false, 3632);
+        // file diff -> 1, knight -> 0, so plane = 64 + (3 * 1) + 0 = 67
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::KNIGHT, false, 4336);
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::BISHOP, false, 4400);
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::ROOK, false, 4464);
+        // file diff -> 0, knight -> 0, so plane = 64 + (3 * 0) + 0 = 64
+        test_encode_movement_helper(PieceType::PAWN, 54, 61, PieceType::KNIGHT, false, 4150);
+        // file diff -> 2, rook -> 2, so plane = 64 + (3 * 2) + 2 = 72
+        test_encode_movement_helper(PieceType::PAWN, 54, 63, PieceType::ROOK, false, 4662);
+
+
+        // Promotions for black - only underpromotions should be placed on the additional output planes
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::QUEEN, true, 48);
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::KNIGHT, true, 4336);
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::BISHOP, true, 4400);
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::ROOK, true, 4464);
+
+        // file diff -> 0, knight -> 0, so plane = 64 + (3 * 0) + 0 = 64
+        test_encode_movement_helper(PieceType::PAWN, 10, 1, PieceType::KNIGHT, true, 4146);
+        // file diff -> 2, rook -> 2, so plane = 64 + (3 * 2) + 2 = 72
+        test_encode_movement_helper(PieceType::PAWN, 10, 3, PieceType::ROOK, true, 4658);
     }
 }

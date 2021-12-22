@@ -13,6 +13,7 @@ use pyo3::pyclass;
 use pyo3::pyproto;
 use pyo3::class::iter::{IterNextOutput};
 use pyo3::PyIterProtocol;
+use crate::constants::*;
 use interfaces_python::pgn::*;
 
 #[pyclass]
@@ -39,11 +40,11 @@ impl PyIterProtocol for NeuralTrainer {
     //     // Ok(slf.into())
     // }
 
-    // fn __next__(mut slf: PyRefMut<Self>) -> IterNextOutput<usize, &'static str> {
-    fn __next__(mut slf: PyRefMut<Self>) -> IterNextOutput<String, &'static str> {
+    fn __next__(mut slf: PyRefMut<Self>) -> IterNextOutput<([u8; NN_PLANE_COUNT_GAME_PIECE_INPUTS << 6], [u8; NN_PLANE_COUNT_AUX_INPUTS << 6], [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6], [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6], f32), &'static str> {
         match slf.pgn.get_next_position() {
-            // TODO: UPDATE THIS to be correct
-            Some(_p) => IterNextOutput::Yield(String::from("abc")),
+            Some(nn_data) => {
+                IterNextOutput::Yield(nn_data)
+            },
             None => IterNextOutput::Return("EOF")
         }
     }

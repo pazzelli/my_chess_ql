@@ -30,6 +30,14 @@ impl PositionHelper {
         sq
     }
 
+    pub fn algebraic_file_from_index(index: u8) -> char {
+        ((index & 7) + 97) as u8 as char
+    }
+
+    pub fn algebraic_rank_from_index(index: u8) -> char {
+        ((index >> 3) + 49) as u8 as char
+    }
+
     pub fn bitboard_from_algebraic(squares: Vec<&str>) -> u64 {
         if squares.len() <= 0 { return 0; }
 

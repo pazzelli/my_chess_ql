@@ -3,27 +3,30 @@
 #![allow(dead_code, unused_imports)]
 #[macro_use] extern crate lazy_static;
 extern crate regex;
+extern crate clap;
 mod constants;
 mod engine;
 mod game;
 mod interfaces;
-// mod interfaces_python;
-// mod neural;
+mod neural;
+mod benchmarks;
 mod test;
-
 use std::path::PathBuf;
-use std::{io};
+
+use std::{env, io};
 // use std::io::Write;
 use std::time::Instant;
 use simple_error::SimpleError;
 use interfaces::*;
 use constants::*;
+use clap::{Arg, App, SubCommand, ArgGroup};
 use game::pieces::piece::*;
 use game::analysis::positionanalyzer::*;
 use game::position::*;
 use game::positionhelper::*;
 use game::moves::gamemovelist::*;
-// use crate::interfaces_python::pgn::PGNReader;
+use crate::interfaces::pgn::PGNReader;
+use crate::benchmarks::perftbenchmark::PerftBenchmark;
 use crate::game::moves::gamemove::GameMove;
 use crate::game::moves::movemaker::MoveMaker;
 use crate::game::pieces::king::King;
@@ -48,21 +51,41 @@ fn process_ui_commands(uci_interface: &mut uci::UCIInterface) {
 }
 
 fn main() {
+    let matches = App::new("MyChessQL Chess Engine")
+        .author("John Pazzelli <john.pazzelli@gmail.com>")
+        .long_about("Neural Network-based chess engine written in Rust\nIf no options specified, listens on stdin for UCI commands (i.e. for use when connected to a chess UI application)")
+        .subcommand(SubCommand::with_name("perft")
+            .about("runs the perft (move generator) benchmark test")
+            // .group(ArgGroup::with_name("vers")
+            //     .args(&["pgn", "perft"])
+            //     .required(true))
+            .arg(Arg::with_name("depth")
+             .long("depth")
+             .value_name("DEPTH")
+             .default_value("3"))
+            .arg(Arg::with_name("fen")
+             .long("fen")
+             .value_name("FEN_STR"))
+            .arg(Arg::with_name("debug")
+             .long("debug")
+             .help("perform 'intense verification' (uses stockfish, if installed - reduces performance but finds bugs)"))
+            )
+        .get_matches();
+
+    // Run perft benchmark, if specified
+    if let Some(matches) = matches.subcommand_matches("perft") {
+        let mut depth = 4;
+        let mut fen: Option<&str> = None;
+        if matches.is_present("depth") {
+            depth = matches.value_of("depth").unwrap().parse().unwrap();
+        }
+        if matches.is_present("fen") {
+            fen = matches.value_of("fen");
+        }
+        return PerftBenchmark::run_perft(fen, depth, matches.is_present("debug"));
+    }
+
+    // Default invocation - wait for input command line args from a chess UI program
     let mut uci = uci::UCIInterface::init_interface();
     process_ui_commands(&mut uci);
-
-    // // Useful to have this here for profiling the binary externally using flamegraph
-    // let iterations = 10000000;   // currently about 8.5s after calculating and storing pawn moves only
-    // // let iterations = 100;
-    //
-    // let mut position = game::position::Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2")).unwrap();
-    // let mut move_list = game::gamemovelist::GameMoveList::default();
-    // let before = Instant::now();
-    // for _ in 0..iterations {
-    //     move_list.clear();
-    //     game::positionanalyzer::PositionAnalyzer::calc_legal_moves(&mut position, &mut move_list);
-    //     // println!("{:?}", MoveGenerator::calc_legal_moves(&position).move_list);
-    // }
-    // println!("Elapsed time: {:.2?}", before.elapsed());
-    // // println!("{:?}", move_list);
 }

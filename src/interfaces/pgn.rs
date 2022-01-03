@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::path::PathBuf;
 use std::io::{BufRead, BufReader};
+use std::ops::Deref;
 
 use regex::Regex;
 use rand::prelude::*;
@@ -27,6 +28,7 @@ pub struct PGNReader {
     move_maker: MoveMaker,
     white_min_elo: bool,
     black_min_elo: bool,
+    nn_converter: PositionConverter
 }
 
 impl PGNReader {
@@ -52,6 +54,7 @@ impl PGNReader {
             move_maker: MoveMaker::default(),
             white_min_elo: false,
             black_min_elo: false,
+            nn_converter: PositionConverter::new()
         }
     }
 
@@ -152,7 +155,10 @@ impl PGNReader {
             // Loop over lines within the games
             loop {
                 let line: Option<String> = self.get_next_pgn_line();
-                if line.is_none() { return None }
+                if line.is_none() {
+                    if game_moves_found { break; }
+                    return None
+                }
                 let line = line.unwrap();
 
                 if line.len() <= 0 {
@@ -202,48 +208,54 @@ impl PGNReader {
         }
         //.expect(format!("Can't find source move {}", next_move_san.as_str()).as_str());
         self.pgn_next_move_played = move_match.unwrap();
+
+        // println!("Next move loaded: {}", self.pgn_next_move_played.extended_move_san);
     }
 
-    pub fn get_next_position(&mut self) -> Option<([u8; NN_PLANE_COUNT_GAME_PIECE_INPUTS << 6], [u8; NN_PLANE_COUNT_AUX_INPUTS << 6], [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6], [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6], f32)> {
-        loop {
-            // Need to load a new game if there are 1 or fewer moves remaining
-            // The final move is not played since it does not have a next move (target move) to train on
-            if self.pgn_game_moves.len() <= 1 {
-                let (pgn_game_position, pgn_game_moves, game_result, white_min_elo, black_min_elo) = self.get_next_pgn_game()?;
+    /// Returns the next position of the next available game in the PGN file, or None if no more games are available
+    /// First returned value contains a single input to the NN (X matrix) containing the last 8 positions seen when that position arose + the auxiliary plane values at that time
+    /// Second returned value contains a mask for the output (y matrix), where the 1 values are the legal moves in the position.  It can be used to mask out invalid outputs before re-normalizing
+    /// Third returned value contains the target output (y matrix), with a single one-hot encoded value representing the move that was played in that position
+    /// Fourth returned value contains the game result in order to train the win probability output for the NN
+    /// Fifth returned value contains a bool indicating whether it is white to move (true)
+    /// Sixth returned value contains a bool indicating whether or not this position comes from a new game
+    pub fn load_next_position (&mut self) -> Option<(Vec<f32>, Vec<f32>, Vec<f32>, f32, bool, bool)> {
+        // Need to load a new game if there are no moves
+        let mut is_new_game = false;
+        if self.pgn_game_moves.len() <= 0 {
+            // Load the next game's data
+            let (pgn_game_position, pgn_game_moves, game_result, white_min_elo, black_min_elo) = self.get_next_pgn_game()?;
+            self.pgn_game_position = pgn_game_position;
+            self.pgn_game_moves = pgn_game_moves;
+            self.pgn_game_result = game_result;
+            self.white_min_elo = white_min_elo;
+            self.black_min_elo = black_min_elo;
 
-                self.pgn_game_position = pgn_game_position;
-                self.pgn_game_moves = pgn_game_moves;
-                self.pgn_game_result = game_result;
-                self.white_min_elo = white_min_elo;
-                self.black_min_elo = black_min_elo;
+            // This resets the position history buffer so that positions from the previous games are not attached
+            // to the position history of the new game
+            self.nn_converter.init_new_game();
+            is_new_game = true;
 
-            } else {
-                // If we already have a position loaded and a valid next move, then make it!
-                // (i.e. apply it to the current position)
-                self.move_maker.make_move(&mut self.pgn_game_position, &self.pgn_next_move_played, false);
-            }
+            // println!("Loaded new game: {:?}", self.pgn_game_moves)
 
-            // Update list of available moves in the position
-            self.position_moves.clear();
-            PositionAnalyzer::calc_legal_moves(&mut self.pgn_game_position, &mut self.position_moves);
-
-            // Keep track of the next move played in the game to make life easier
-            self.set_next_pgn_move_played();
-
-            // Return an encoded position for the neural network only if the current player has reached the min ELO cutoff
-            if (self.pgn_game_position.white_to_move && self.white_min_elo) || (!self.pgn_game_position.white_to_move && self.black_min_elo) {
-                let (input_piece_planes, input_aux_planes, output_move_planes) = PositionConverter::convert_position_for_nn(&self.pgn_game_position, &self.position_moves);
-                let output_target_move_plane = PositionConverter::convert_target_move_for_nn(&self.pgn_next_move_played, !self.pgn_game_position.white_to_move);
-
-                return Some((
-                    input_piece_planes,
-                    input_aux_planes,
-                    output_move_planes,
-                    output_target_move_plane,
-                    self.pgn_game_result)
-                );
-            }
+        } else {
+            // If we already have a position loaded and a valid next move, then make it!
+            // (i.e. apply it to the current position)
+            self.move_maker.make_move(&mut self.pgn_game_position, &self.pgn_next_move_played, false);
         }
+
+        // Update list of available moves in the position
+        self.position_moves.clear();
+        PositionAnalyzer::calc_legal_moves(&mut self.pgn_game_position, &mut self.position_moves);
+
+        // Keep track of the next move played in the game to make life easier
+        self.set_next_pgn_move_played();
+
+        // Return an encoded position for the neural network
+        let (input_data, output_mask) = self.nn_converter.convert_position_for_nn(&self.pgn_game_position, &self.position_moves);
+        let output_target = PositionConverter::convert_target_move_for_nn(&self.pgn_next_move_played, &self.pgn_game_position);
+
+        return Some((input_data, output_mask, output_target, self.pgn_game_result, self.pgn_game_position.white_to_move, is_new_game))
     }
 }
 
@@ -314,29 +326,34 @@ mod tests {
     }
 
     #[test]
-    fn test_read_pgn_test_file() {
-        // let file_path = "src/test/resources/bundesliga2000.pgn";
-        let file_path = "src/test/resources/test_pgn1.pgn";
+    fn test_pgn_file_reading() {
+        // let n_positions = 10;
+        let file_path = "src/test/resources/TestPGN.pgn";
+
         let mut pgn = PGNReader::init_pgn_file(file_path);
-        let mut total_positions = 0;
+        let mut total_games = 0u64;
+        let mut total_positions = 0u64;
         println!("Initializing from file: {}", file_path);
 
         let before = Instant::now();
 
         loop {
-            let x = pgn.get_next_position();
+            let x = pgn.load_next_position();
             if x.is_none() { break; }
 
-            if total_positions % 100000 == 0 {
+            total_games += x.unwrap().5 as u64;
+            total_positions += 1;
+
+            // if total_positions % (n_positions as u64 * 1000) == 0 as u64 {
+            if total_positions % 10000 == 0u64 {
+                println!("\nTotal games: {}", total_games);
                 println!("Total positions: {}", total_positions);
                 let elapsed = before.elapsed();
                 println!("Elapsed time: {:.2?}  ({:.1?} pos/s)", elapsed, (total_positions as f64 / elapsed.as_millis() as f64) * 1000f64);
-                std::io::stdout().flush().unwrap_or(());
             }
-
-            total_positions += 1;
         }
 
+        println!("\nTotal games: {}", total_games);
         println!("Total positions: {}", total_positions);
         let elapsed = before.elapsed();
         println!("Elapsed time: {:.2?}  ({:.1?} pos/s)", elapsed, (total_positions as f64 / elapsed.as_millis() as f64) * 1000f64);

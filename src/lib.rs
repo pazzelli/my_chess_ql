@@ -3,9 +3,11 @@
 extern crate regex;
 
 mod game;
+mod engine;
 mod constants;
-mod interfaces_python;
+mod interfaces;
 mod neural;
+mod benchmarks;
 mod test;
 
 use pyo3::prelude::*;
@@ -14,7 +16,7 @@ use pyo3::pyproto;
 use pyo3::class::iter::{IterNextOutput};
 use pyo3::PyIterProtocol;
 use crate::constants::*;
-use interfaces_python::pgn::*;
+use crate::interfaces::pgn::*;
 
 #[pyclass]
 pub struct NeuralTrainer {
@@ -40,8 +42,8 @@ impl PyIterProtocol for NeuralTrainer {
     //     // Ok(slf.into())
     // }
 
-    fn __next__(mut slf: PyRefMut<Self>) -> IterNextOutput<([u8; NN_PLANE_COUNT_GAME_PIECE_INPUTS << 6], [u8; NN_PLANE_COUNT_AUX_INPUTS << 6], [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6], [u8; NN_PLANE_COUNT_MOVEMENT_OUTPUTS << 6], f32), &'static str> {
-        match slf.pgn.get_next_position() {
+    fn __next__(mut slf: PyRefMut<Self>) -> IterNextOutput<(Vec<f32>, Vec<f32>, Vec<f32>, f32, bool, bool), &'static str> {
+        match slf.pgn.load_next_position() {
             Some(nn_data) => {
                 IterNextOutput::Yield(nn_data)
             },
@@ -73,32 +75,6 @@ fn my_chess_ql(_py: Python, m: &PyModule) -> PyResult<()> {
     // Ok(())
 }
 
-// impl Iterator for PGNReader {
-//     // TODO: add repetition count as another plane
-//     // 12 piece types (6 each for white / black) plus 7 additional: colour, total move count, white castling rights (x2),
-//     // black castling rights (x2), no-progress count (50-move counter)
-//     // type Item = [u8; (64 * 12) + 7];
-//     // type Item = &'static str;
-//     type Item = String;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let mut line = String::new();
-//         let _len = self.file.read_line(&mut line).expect("Error reading PGN file");
-//
-//         // Some(line.as_str())
-//         Some(line)
-//
-//         // // Read the file contents into a string, returns `io::Result<usize>`
-//         // let mut s = String::new();
-//         // match self.file.read_to_string(&mut s) {
-//         //     Err(why) => panic!("couldn't read {}: {}", display, why),
-//         //     Ok(_) => () //print!("{} contains:\n{}", display, s),
-//         // }
-//         // //
-//         // // json::parse(s.as_str()).unwrap()
-//         // None
-//     }
-// }
 
 // #[pyclass]
 // #[pyo3(text_signature = "(c, d, /)")]

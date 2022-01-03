@@ -38,7 +38,7 @@ impl Default for Position {
             king_in_check: false, king_in_double_check: false,
             is_stalemate: false, is_checkmate: false,
             fifty_move_count: 0,
-            move_number: 0
+            move_number: 1
         }
     }
 }
@@ -46,7 +46,8 @@ impl Default for Position {
 impl Position {
     pub fn from_fen(fen_str: Option<&str>, print_pos: bool) -> Result<Position, SimpleError> {
         // Default to starting board position
-        let pos_str: &str = fen_str.unwrap_or(START_POSITION);
+        let mut pos_str: &str = fen_str.unwrap_or(START_POSITION);
+        if pos_str.trim().len() <= 0 { pos_str = START_POSITION; }
         let pos_str_tokens: Vec<&str> = pos_str.split(' ').collect();
         if pos_str_tokens.len() != 6 { bail!("Invalid FEN string {}", pos_str) }
 

@@ -30,7 +30,7 @@ impl UCIInterface {
 
             "stop" => self.engine.stop_search(),
 
-            "ucinewgame" => (),
+            "ucinewgame" => self.engine.init_new_game(),
 
             "position" => {
                 match cmd_tokens[1] {

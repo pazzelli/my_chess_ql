@@ -25,6 +25,11 @@
     "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   },
   {
+    "depth": 5,
+    "nodes": 4865609,
+    "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  },
+  {
     "depth":1,
     "nodes":8,
     "fen":"r6r/1b2k1bq/8/8/7B/8/8/R3K2R b KQ - 3 2"
@@ -86,6 +91,11 @@
   },
   {
     "depth":6,
+    "nodes":1440467,
+    "fen":"8/8/1k6/2b5/2pP4/8/5K2/8 b - d3 0 1"
+  },
+  {
+    "depth":6,
     "nodes":661072,
     "fen":"5k2/8/8/8/8/8/8/4K2R w K - 0 1"
   },
@@ -98,6 +108,16 @@
     "depth":4,
     "nodes":1274206,
     "fen":"r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1"
+  },
+  {
+    "depth":4,
+    "nodes":1720476,
+    "fen":"r3k2r/8/3Q4/8/8/5q2/8/R3K2R b KQkq - 0 1"
+  },
+  {
+    "depth":6,
+    "nodes":3821001,
+    "fen":"2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1"
   },
   {
     "depth":5,
@@ -133,5 +153,15 @@
     "depth":3,
     "nodes":62379,
     "fen":"rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
+  },
+  {
+    "depth": 4,
+    "nodes": 2103487,
+    "fen": "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
+  },
+  {
+    "depth": 6,
+    "nodes": 119060324,
+    "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   }
 ]

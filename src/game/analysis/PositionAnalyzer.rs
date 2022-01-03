@@ -280,26 +280,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_calc_legal_moves_benchmark() {
-        // currently about 8.5s after calculating and storing pawn moves only
-        // About 20s after all pieces were added
-        // About 32s after pins / checks / final logic completed
-        // let iterations = 10000000;
-        let iterations = 100;
-
-        let mut position = Position::from_fen(Some("r2q1rk1/pP2ppbp/2p2np1/PpPPP1B1/51b1/Q4N1P/5PP1/3RKB1R w KQkq b6 1 2"), true).unwrap();
-        let mut move_list = GameMoveList::default();
-        let before = Instant::now();
-        for _ in 0..iterations {
-            move_list.clear();
-            PositionAnalyzer::calc_legal_moves(&mut position, &mut move_list);
-            // println!("{:?}", MoveGenerator::calc_legal_moves(&position).move_list);
-        }
-        println!("Elapsed time: {:.2?}", before.elapsed());
-        // println!("{:?}", move_list);
-    }
-
     // #[test]
     // // Result - trailing_zeros() is faster by about 33%
     // fn test_bit_scan_speed() {

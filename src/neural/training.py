@@ -1,74 +1,66 @@
-import os
-import sys
 import argparse
-import numpy as np
 import tensorflow as tf
-import my_chess_ql
+import matplotlib.pyplot as plt
+
+from training_data import EPOCHS_PER_BATCH
+from neural.training_data import TrainingData
+from neural.training_model import TrainingModel
 
 
-class Training:
+class Training():
     @staticmethod
-    def get_next_pgn_file(path):
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                if file.endswith('pgn'):
-                    yield os.path.join(root, file)
+    def visualize_training_results(history):
+        movement_output_acc = history.history['movement_output_accuracy']
+        win_probablity_acc = history.history['win_probability_accuracy']
+        val_movement_output_acc = history.history['val_movement_output_accuracy']
+        val_win_probability_acc = history.history['val_win_probability_accuracy']
 
-    @staticmethod
-    def get_next_position(path):
-        for file_path in Training.get_next_pgn_file(path):
-            # noinspection PyUnresolvedReferences
-            pgn = my_chess_ql.NeuralTrainer(file_path)
-            while True:
-                try:
-                    next_pos = pgn.__next__()
-                    yield next_pos
-                except StopIteration:
-                    break
-        return None
+        loss = history.history['loss']
+        val_loss = history.history['val_loss']
+        movement_output_loss = history.history['movement_output_loss']
+        win_probablity_loss = history.history['win_probability_loss']
+        val_movement_output_loss = history.history['val_movement_output_loss']
+        val_win_probability_loss = history.history['val_win_probability_loss']
+
+        epochs_range = range(EPOCHS_PER_BATCH)
+
+        plt.figure(figsize=(8, 8))
+        plt.subplot(1, 2, 1)
+        plt.plot(epochs_range, movement_output_acc, label='Training Movement Accuracy')
+        plt.plot(epochs_range, val_movement_output_acc, label='Validation Movement Accuracy')
+        plt.legend(loc='lower right')
+        plt.title('Training and Validation Accuracy')
+
+        plt.subplot(1, 2, 2)
+        plt.plot(epochs_range, loss, label='Training Loss')
+        plt.plot(epochs_range, val_loss, label='Validation Loss')
+        plt.legend(loc='upper right')
+        plt.title('Training and Validation Loss')
+        plt.show()
 
     @staticmethod
     def run_training(path):
-        np.set_printoptions(threshold=sys.maxsize)
+        # print(tf.config.list_physical_devices())
 
-        i = 0
+        model = TrainingModel.get_compiled_model()
 
-        for nn_data in Training.get_next_position(path):
-            if not nn_data: break
+        for X_train_main_input, X_train_output_mask, X_train_output_target, X_train_win_result, X_val_main_input, \
+            X_val_output_mask, X_val_output_target, X_val_win_result in TrainingData.get_next_encoded_positions(path):
 
-            (input_planes, output_planes, output_target, game_result, white_to_move, is_new_game) = nn_data
-            # input_piece_planes = np.array(input_piece_planes)
+            history = model.fit(
+                x = {'main_input': X_train_main_input, 'output_mask': X_train_output_mask},
+                y = {'movement_output': X_train_output_target, 'win_probability': X_train_win_result},
+                # batch_size=512,
+                epochs=EPOCHS_PER_BATCH,
+                # shuffle=False,
+                validation_data=(
+                    {'main_input': X_val_main_input, 'output_mask': X_val_output_mask},
+                    {'movement_output': X_val_output_target, 'win_probability': X_val_win_result}
+                )
+            )
 
-            input_planes = np.array(input_planes).reshape((1, (8 * 12) + 7, 8, 8))
-            # input_aux_planes = np.array(input_aux_planes, dtype=float).reshape((1, 7, 8, 8))
-
-            # if white_to_move:
-            #     input_planes = input_planes.
-
-            if i == 0:
-                print(input_planes)
-                # print(np.around(input_planes, decimals=2))
-
-                # # This magic line will normalize the fifty-move and move-count planes to be between [0, 1]
-                # input_aux_planes[:, 1:3, :, :] /= 256.0
-
-                # print(input_aux_planes)
-
-                # print(tf.keras.utils.normalize(input_aux_planes, axis=4))
-
-            # if i % 100 == 0:
-            #     print("input_piece_planes: \n{}".format(input_piece_planes))
-            #     print("input_aux_planes: \n{}".format(input_aux_planes))
-            #     print("output_planes: \n{}".format(output_planes))
-            #     print("output_target: \n{}".format(output_target))
-            #     print("game_result: \n{}".format(game_result))
-
-            i += 1
-            if i >= 100: break
-
-    # @staticmethod
-    # def train():
-    #     tf.keras.models
+            Training.visualize_training_results(history)
+            break
 
     @staticmethod
     def main():

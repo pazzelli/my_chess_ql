@@ -6,13 +6,29 @@ from neural.training_data import NN_TOTAL_INPUT_SIZE_PER_POS, NN_TOTAL_PLANES_PE
 
 class TransposeChannelsLastLayer(layers.Layer):
     def __init__(self):
-        super(TransposeChannelsLastLayer, self).__init__(trainable=False, name='transpose_channels_last')
+        super(TransposeChannelsLastLayer, self).__init__(name='transpose_channels_last')
 
     # def build(self, input_shape: TensorShape):
     #     pass
 
-    def call(self, inputs, *args, **kwargs):
-        return tf.transpose(inputs, perm=[0, 2, 3, 1], name=self.name)
+    # def call(self, inputs, training, *args, **kwargs):
+    def call(self, inputs, training=False, mask=None):
+        return tf.transpose(inputs, perm=[0, 2, 3, 1])
+
+    # def compute_mask(self, inputs, mask=None):
+    #     # Just pass the received mask from previous layer, to the next layer or
+    #     # manipulate it if this layer changes the shape of the input
+    #     return mask
+    #
+    # def get_config(self):
+    #     return {}
+    #     # return {"a": self.var.numpy()}
+
+    # # There's actually no need to define `from_config` here, since returning
+    # # `cls(**config)` is the default behavior.
+    # @classmethod
+    # def from_config(cls, config):
+    #     return cls(**config)
 
 
 class TrainingModel:
@@ -45,8 +61,6 @@ class TrainingModel:
         win_probability_output = layers.Dense(1, name='win_probability', activation='sigmoid')(main_output)
 
         model = models.Model([main_input, main_output_mask], [final_output, win_probability_output])
-
-        print(model.summary())
         return model
 
     @staticmethod

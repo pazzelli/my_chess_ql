@@ -7,7 +7,7 @@ import tensorflow as tf
 SHUFFLE_BUFFER_SIZE = 1000
 TRAIN_TEST_SPLIT = 0.8  # must contain a single decimal place only
 BATCH_SIZE = 500     # preferably in multiples of 10 so train/test split will produce expected results
-EPOCHS = 1
+EPOCHS = 10
 
 # Neural net structure parameters
 NN_PIECE_PLANES = 12    # 6 planes for each side's pieces
@@ -68,5 +68,16 @@ class TrainingData:
         val_batch_size = BATCH_SIZE - train_batch_size
 
         # Enable caching and prefetch for better performance for subsequent epochs
-        return ds_train.cache().prefetch(buffer_size=AUTOTUNE).batch(train_batch_size), \
-               ds_validation.cache().prefetch(buffer_size=AUTOTUNE).batch(val_batch_size)
+        # return ds_train.cache().prefetch(buffer_size=AUTOTUNE).batch(train_batch_size), \
+        #        ds_validation.cache().prefetch(buffer_size=AUTOTUNE).batch(val_batch_size)
+        ds_train = ds_train.prefetch(buffer_size=AUTOTUNE).batch(train_batch_size)
+        ds_validation = ds_validation.prefetch(buffer_size=AUTOTUNE).batch(val_batch_size)
+
+        x = ds_train.map(lambda main_input, output_mask, t, t2, t3, t4: {'main_input': main_input, 'output_mask': output_mask})
+        y = ds_train.map(lambda t, t2, output_target, win_result, t3, t4: {'movement_output': output_target, 'win_probability': win_result})
+
+        x_val = ds_validation.map(lambda main_input, output_mask, t, t2, t3, t4: {'main_input': main_input, 'output_mask': output_mask})
+        y_val = ds_validation.map(lambda t, t2, output_target, win_result, t3, t4: {'movement_output': output_target, 'win_probability': win_result})
+
+        return x, y, x_val, y_val
+

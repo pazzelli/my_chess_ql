@@ -1,10 +1,14 @@
+import os.path
+import datetime
 import argparse
+
+import keras
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from training_data import EPOCHS
 from neural.training_data import TrainingData
-from neural.training_model import TrainingModel
+from neural.training_model import TrainingModel, TransposeChannelsLastLayer
 
 
 class Training():
@@ -39,37 +43,67 @@ class Training():
         plt.show()
 
     @staticmethod
-    def run_training(path):
-        # print(tf.config.list_physical_devices())
-
-        model = TrainingModel.get_compiled_model()
-
-        ds_train, ds_val = TrainingData.get_datasets(path)
-
-        x = ds_train.map(lambda main_input, output_mask, t, t2, t3, t4: {'main_input': main_input, 'output_mask': output_mask})
-        y = ds_train.map(lambda t, t2, output_target, win_result, t3, t4: {'movement_output': output_target, 'win_probability': win_result})
-
-        x_val = ds_val.map(lambda main_input, output_mask, t, t2, t3, t4: {'main_input': main_input, 'output_mask': output_mask})
-        y_val = ds_val.map(lambda t, t2, output_target, win_result, t3, t4: {'movement_output': output_target, 'win_probability': win_result})
-
-        history = model.fit(
-            x=tf.data.Dataset.zip((x, y)),  # not sure why this additional zip is needed, but it is
-            # batch_size=512,   # this isn't allowed here since the datasets themselves are already batched
-            epochs=EPOCHS,
-            # shuffle=False,    # not allowed here either since the datasets are also already shuffled
-            validation_data=tf.data.Dataset.zip((x_val, y_val))
+    def adjust_modeL_learning_rate(model):
+        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=0.02,
+            decay_steps=1000,
+            decay_rate=0.9
         )
 
-        Training.visualize_training_results(history)
+        model.optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+        # optimizer.learning_rate.assign(0.01)
+        # print(optimizer.learning_rate)
+
+    @staticmethod
+    def run_training(pgn_path: str, model_path: str, tensorboard_log_dir="logs/fit"):
+        # print(tf.config.list_physical_devices())
+
+        if os.path.exists(os.path.join(model_path, 'saved_model.pb')):
+            model = keras.models.load_model(model_path, custom_objects={'transpose_channels_last': TransposeChannelsLastLayer})
+        else:
+            print("WARNING: NEW MODEL WILL BE TRAINED - no previous model found at {}".format(model_path))
+            model = TrainingModel.get_compiled_model()
+        Training.adjust_modeL_learning_rate(model)
+        print(model.summary())
+
+        x, y, x_val, y_val = TrainingData.get_datasets(pgn_path)
+
+        tensorboard_dir = os.path.join(tensorboard_log_dir, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tensorboard_dir, histogram_freq=1)
+
+        history = None
+        try:
+            history = model.fit(
+                x=tf.data.Dataset.zip((x, y)),  # not sure why this additional zip is needed, but it is
+                # batch_size=512,   # this isn't allowed here since the datasets themselves are already batched
+                # shuffle=False,    # not allowed here either since the datasets are also already shuffled
+                epochs=EPOCHS,
+                steps_per_epoch=10,
+                validation_data=tf.data.Dataset.zip((x_val, y_val)),
+                validation_steps=10,
+                use_multiprocessing=True,
+                workers=3,
+                callbacks=[tensorboard_callback]
+            )
+        except (InterruptedError, KeyboardInterrupt):
+            pass
+        finally:
+            print("\nSaving model to {}".format(model_path))
+            model.save(filepath=model_path, overwrite=True)
+
+        if history:
+            Training.visualize_training_results(history)
 
     @staticmethod
     def main():
         parser = argparse.ArgumentParser(description='Train a neural network to play chess!')
         parser.add_argument('pgn_path', type=str,
                             help='a path containing Portable Game Notation (PGN) files to use for training')
+        parser.add_argument('model_path', type=str,
+                            help='a path to the folder of an existing model file (to resume from) or where to save existing results')
         args = parser.parse_args()
 
-        Training.run_training(args.pgn_path)
+        Training.run_training(args.pgn_path, args.model_path)
 
 
 if __name__ == "__main__":

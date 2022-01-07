@@ -2,7 +2,7 @@ import argparse
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-from training_data import EPOCHS_PER_BATCH
+from training_data import EPOCHS
 from neural.training_data import TrainingData
 from neural.training_model import TrainingModel
 
@@ -22,7 +22,7 @@ class Training():
         val_movement_output_loss = history.history['val_movement_output_loss']
         val_win_probability_loss = history.history['val_win_probability_loss']
 
-        epochs_range = range(EPOCHS_PER_BATCH)
+        epochs_range = range(EPOCHS)
 
         plt.figure(figsize=(8, 8))
         plt.subplot(1, 2, 1)
@@ -44,23 +44,23 @@ class Training():
 
         model = TrainingModel.get_compiled_model()
 
-        for X_train_main_input, X_train_output_mask, X_train_output_target, X_train_win_result, X_val_main_input, \
-            X_val_output_mask, X_val_output_target, X_val_win_result in TrainingData.get_next_encoded_positions(path):
+        ds_train, ds_val = TrainingData.get_datasets(path)
 
-            history = model.fit(
-                x = {'main_input': X_train_main_input, 'output_mask': X_train_output_mask},
-                y = {'movement_output': X_train_output_target, 'win_probability': X_train_win_result},
-                # batch_size=512,
-                epochs=EPOCHS_PER_BATCH,
-                # shuffle=False,
-                validation_data=(
-                    {'main_input': X_val_main_input, 'output_mask': X_val_output_mask},
-                    {'movement_output': X_val_output_target, 'win_probability': X_val_win_result}
-                )
-            )
+        x = ds_train.map(lambda main_input, output_mask, t, t2, t3, t4: {'main_input': main_input, 'output_mask': output_mask})
+        y = ds_train.map(lambda t, t2, output_target, win_result, t3, t4: {'movement_output': output_target, 'win_probability': win_result})
 
-            Training.visualize_training_results(history)
-            break
+        x_val = ds_val.map(lambda main_input, output_mask, t, t2, t3, t4: {'main_input': main_input, 'output_mask': output_mask})
+        y_val = ds_val.map(lambda t, t2, output_target, win_result, t3, t4: {'movement_output': output_target, 'win_probability': win_result})
+
+        history = model.fit(
+            x=tf.data.Dataset.zip((x, y)),  # not sure why this additional zip is needed, but it is
+            # batch_size=512,   # this isn't allowed here since the datasets themselves are already batched
+            epochs=EPOCHS,
+            # shuffle=False,    # not allowed here either since the datasets are also already shuffled
+            validation_data=tf.data.Dataset.zip((x_val, y_val))
+        )
+
+        Training.visualize_training_results(history)
 
     @staticmethod
     def main():

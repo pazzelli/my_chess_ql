@@ -22,15 +22,15 @@ class TrainingModel:
         reshape = layers.Reshape((NN_TOTAL_PLANES_PER_POS, 8, 8))(main_input)
         move_channels_last = TransposeChannelsLastLayer()(reshape)
 
-        conv1 = layers.Conv2D(256, (3, 3), padding='same', activation='relu')(move_channels_last)
+        conv1 = layers.Conv2D(512, (3, 3), padding='same', activation='relu')(move_channels_last)
         # pooling1 = layers.MaxPooling2D((2, 2), padding='same', data_format='channels_first')(conv1)
         # dropout1 = layers.Dropout(0.2)(conv1)
 
-        conv2 = layers.Conv2D(128, (3, 3), padding='same', activation='relu')(conv1)
+        conv2 = layers.Conv2D(256, (3, 3), padding='same', activation='relu')(conv1)
         pooling2 = layers.MaxPooling2D((2, 2), padding='same')(conv2)
         dropout2 = layers.Dropout(0.2)(pooling2)
 
-        conv3 = layers.Conv2D(256, (2, 2), padding='same', activation='relu')(dropout2)
+        conv3 = layers.Conv2D(512, (2, 2), padding='same', activation='relu')(dropout2)
         pooling3 = layers.MaxPooling2D((2, 2), padding='same')(conv3)
         dropout3 = layers.Dropout(0.2)(pooling3)
 

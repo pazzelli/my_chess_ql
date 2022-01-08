@@ -16,11 +16,9 @@ NN_MOVE_HISTORY_PER_POS = 8     # Buffer the last 8 moves and show them to the N
 NN_TOTAL_PIECE_PLANES_PER_POS = NN_MOVE_HISTORY_PER_POS * NN_PIECE_PLANES
 NN_TOTAL_PLANES_PER_POS = NN_TOTAL_PIECE_PLANES_PER_POS + NN_AUX_PLANES
 
-# One plane per target square and then 9 special planes (3 for underpromotion movement direction * 3 for each
-# underpromotion piece (knight / bishop / rook)
-NN_TOTAL_OUTPUT_PLANES = 64 + (3 * 3)
 NN_TOTAL_INPUT_SIZE_PER_POS = NN_TOTAL_PLANES_PER_POS << 6
-NN_TOTAL_OUTPUT_SIZE_PER_POS = NN_TOTAL_OUTPUT_PLANES << 6
+
+NN_TOTAL_OUTPUT_SIZE_PER_POS = 1858
 
 
 class TrainingData:
@@ -54,12 +52,13 @@ class TrainingData:
         )
 
         # Shuffle the raw dataset being generated from Rust
-        ds_positions = ds_positions.shuffle(buffer_size=SHUFFLE_BUFFER_SIZE, seed=12, reshuffle_each_iteration=False)
+        # ds_positions = ds_positions.shuffle(buffer_size=SHUFFLE_BUFFER_SIZE, seed=12, reshuffle_each_iteration=False)
 
         # For every WINDOW_SIZE samples, split across train / test sets using the TRAIN_TEST_SPLIT percentage
         WINDOW_SIZE = 10
         split = int(TRAIN_TEST_SPLIT * WINDOW_SIZE)
-        ds_train = ds_positions.window(split, WINDOW_SIZE).flat_map(lambda *ds: ds[0] if len(ds) == 1 else tf.data.Dataset.zip(ds))
+        ds_train = ds_positions.shuffle(buffer_size=SHUFFLE_BUFFER_SIZE, seed=12, reshuffle_each_iteration=False) \
+            .window(split, WINDOW_SIZE).flat_map(lambda *ds: ds[0] if len(ds) == 1 else tf.data.Dataset.zip(ds))
         ds_validation = ds_positions.skip(split).window(WINDOW_SIZE - split, WINDOW_SIZE).flat_map(lambda *ds: ds[0] if len(ds) == 1 else tf.data.Dataset.zip(ds))
 
         # Calculate batch sizes for train/test data using TRAIN_TEST_SPLIT

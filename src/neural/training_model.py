@@ -51,7 +51,7 @@ class TrainingModel:
         dropout3 = layers.Dropout(0.2)(pooling3)
 
         flatten = layers.Flatten()(dropout3)
-        dense1 = layers.Dense(NN_TOTAL_OUTPUT_SIZE_PER_POS >> 1)(flatten)
+        dense1 = layers.Dense(2048)(flatten)
         main_output = layers.Dense(NN_TOTAL_OUTPUT_SIZE_PER_POS, name='output_raw')(dense1)
 
         main_output_mask = layers.Input(shape=(NN_TOTAL_OUTPUT_SIZE_PER_POS,), dtype='float32', name='output_mask')

@@ -1,6 +1,7 @@
 use std::arch::x86_64::_mm256_floor_pd;
 use std::mem::size_of;
 use unroll::unroll_for_loops;
+use itertools::Itertools;
 
 use crate::game::position::*;
 use crate::constants::*;
@@ -118,37 +119,21 @@ impl PositionConverter {
         }
     }
 
-    // Encode a single game movement into the output plane set (to be used to mask out invalid values in the output
+    // Encode a single game movement into a unique location in the output vector (to be used to mask out invalid values in the output
     // and to encode the target output)
-    // Output planes are encoded using a simple source square vs. target square scheme, with underpromotion
-    // moves encoded separately onto their own planes
+    // Output vector contains one square for every valid / unique / possible move, given the piece movement
+    // rules of chess.  Pawn underpromotion moves encoded separately into their own slot since promotion
+    // moves share the same source/target square combo but can promote to 4 possible piece types
     pub fn encode_movement(movement_planes: *mut f32, game_move: &GameMove, flip_for_black: bool) {
-        // Default the plane number to the target square of the piece movement
         let flip_for_black = flip_for_black as u8;
-        // let mut plane_num = game_move.target_square as isize;
-        let mut plane_num = ((flip_for_black * VERTICAL_FLIP_INDICES[game_move.target_square as usize]) + ((1 - flip_for_black) * game_move.target_square)) as isize;
-        // let square_offset = game_move.source_square as isize;
+        let source_square = ((flip_for_black * VERTICAL_FLIP_INDICES[game_move.source_square as usize]) + ((1 - flip_for_black) * game_move.source_square)) as u16;
+        let target_square = ((flip_for_black * VERTICAL_FLIP_INDICES[game_move.target_square as usize]) + ((1 - flip_for_black) * game_move.target_square)) as u16;
+        let promotion_piece = ((game_move.promotion_piece as u8) % 4) as u16;    // makes queen promotions wrap around to 0
 
-        // For any move that is an underpromotion, need to encode it on a separate set of planes
-        if game_move.promotion_piece != PieceType::NONE && game_move.promotion_piece != PieceType::QUEEN {
-            let (_, file_src) = PositionHelper::rank_and_file_from_index(game_move.source_square);
-            let (_, file_tgt) = PositionHelper::rank_and_file_from_index(game_move.target_square);
-
-            // Compute differences in source and target squares (rank and file) to determine movement direction
-            // let rank_diff: i8 = rank_tgt as i8 - rank_src as i8;
-            let file_diff: i8 = file_tgt as i8 - file_src as i8;
-
-            // Since this is a pawn promotion move, file_diff must be one of [-1, 0, 1]
-            // and the promotion piece will be one of [knight = 1, bishop = 2, rook = 3]
-            // These planes are encoded AFTER the initial 64 planes (one for each target square)
-            plane_num = 64 + ((3 * (file_diff + 1)) + (game_move.promotion_piece as i8 - 1)) as isize;
-        }
-
-        // Ensure the board is flipped vertically if it's black's turn
-        let square_offset = ((flip_for_black * VERTICAL_FLIP_INDICES[game_move.source_square as usize]) + ((1 - flip_for_black) * game_move.source_square)) as isize;
-
+        // println!("{}", ((promotion_piece << 12) + (source_square << 6) + target_square));
+        let offset = MOVEMENTS_TO_NN_OUTPUT_INDICES[&((promotion_piece << 12) + (source_square << 6) + target_square)];
         unsafe {
-            movement_planes.offset((plane_num << 6) + square_offset).write(1.0);
+            movement_planes.offset(offset as isize).write(1.0);
         }
 
 
@@ -269,6 +254,11 @@ mod tests {
         for stride in (0..plane_data.len()).step_by(32) {
             let mut total = 0f32;
             for i in 0..32 {
+                // Ensure we don't run off the end of the input data
+                if plane_data.len() <= stride + i {
+                    result.push(total);
+                    return result;
+                }
                 total += plane_data[stride + i];
             }
             result.push(total);
@@ -318,29 +308,38 @@ mod tests {
     }
 
     fn print_nn_encoded_output(output_planes: &Vec<f32>, white_to_move: bool) {
-        // 64 target square planes + (3x underpromotion file diff planes * 3x underpromotion piece (knight, bishop, rook))
-        println!("\nOutput plane contents:");
+        // TODO: the logic below decodes the output from the NN and will need to be refactored out into its own helper
+        println!("\nOutput plane contents (movements):");
 
-        for i in 0..(64 + (3 * 3)) {
-            let label = if i < 64 {
-                let target_sq = if white_to_move { i as u8 } else { VERTICAL_FLIP_INDICES[i] };
-                format!("Target square {}", PositionHelper::algebraic_from_index(target_sq))
-                // format!("Target square {}", PositionHelper::algebraic_from_index(i as u8))
+        for i in 0..output_planes.len() {
+            if output_planes[i] <= 0f32 { continue; }
 
-            } else {
-                let movement_dir = match (i - 64) / 3 {
-                    0 => "Left",
-                    1 => "Center",
-                    _ => "Right"
-                };
-                let underpromotion_piece = match (i - 64) % 3 {
-                    0 => "Knight",
-                    1 => "Bishop",
-                    _ => "Rook"
-                };
-                format!("{} movement - promotion to {}", movement_dir, underpromotion_piece)
+            let move_encoding = NN_OUTPUT_INDICES_TO_MOVEMENTS[&(i as u16)];
+            // println!("{}, {}", i, move_encoding);
+
+            let promotion_piece = match move_encoding >> 12 {
+                1 => PieceType::KNIGHT,
+                2 => PieceType::BISHOP,
+                3 => PieceType::ROOK,
+                _ => PieceType::NONE
             };
-            print_nn_encoded_plane(output_planes.as_ptr(), (i<<6) as isize, label.as_str());
+            let mut source_square = ((move_encoding >> 6) & 63) as u8;
+            let mut target_square = (move_encoding & 63) as u8;
+
+            source_square = if white_to_move { source_square } else {VERTICAL_FLIP_INDICES[source_square as usize] };
+            target_square = if white_to_move { target_square } else {VERTICAL_FLIP_INDICES[target_square as usize] };
+
+            let mut game_move = GameMove {
+                piece: PieceType::NONE,
+                source_square,
+                target_square,
+                promotion_piece,
+                is_capture: false,
+                extended_move_san: Default::default()
+            };
+            game_move.set_extended_san_move_string();
+
+            println!("{}", game_move.extended_move_san);
         }
     }
 
@@ -356,7 +355,7 @@ mod tests {
 
         // // Uncomment the next lines to see the input + output plane encodings in all their gory detail
         // print_nn_encoded_input(&input_planes, position.white_to_move);
-        // print_nn_encoded_output(&output_move_mask_planes);
+        // print_nn_encoded_output(&output_move_mask_planes, position.white_to_move);
 
         compare_f32_vectors(
             &calc_encoded_plane_checksums(&input_planes),
@@ -365,7 +364,7 @@ mod tests {
 
         compare_f32_vectors(
             &calc_encoded_plane_checksums(&output_move_mask_planes),
-            &vec![0.0, 0.0, 2.0, 0.0, 2.0, 1.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 2.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0]
+            &vec![2.0, 0.0, 11.0, 1.0, 1.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 1.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 8.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         );
     }
 
@@ -376,63 +375,124 @@ mod tests {
     // The network specifies 4672 outputs though, so only 41.2% of the outputs will ever be set to 1
     #[test]
     fn test_encode_movement_output_planes() {
-        let mut movement_planes = [0f32; NN_TOTAL_OUTPUT_PLANES << 6];
-        let mut target_count = 0;
+        let mut flip_for_black = false; // first pass for white, second for black
+        for _ in 0..2 {
+            let mut movement_planes = [0f32; NN_TOTAL_OUTPUT_SIZE_PER_POS];
+            let mut target_count = 0;
 
-        for sq_ind in 0..64 {
-            let mut cardinal_moves = QUEEN_ATTACKS[sq_ind];
-            let mut knight_moves = KNIGHT_ATTACKS[sq_ind];
+            for sq_ind in 0..64 {
+                let mut cardinal_moves = QUEEN_ATTACKS[sq_ind];
+                let mut knight_moves = KNIGHT_ATTACKS[sq_ind];
 
-            let mut game_move = GameMove::default();
-            game_move.source_square = sq_ind as u8;
+                let mut game_move = GameMove::default();
+                game_move.source_square = sq_ind as u8;
 
-            while cardinal_moves > 0 {
-                game_move.piece = PieceType::QUEEN;
-                game_move.target_square = cardinal_moves.trailing_zeros() as u8;
+                while cardinal_moves > 0 {
+                    game_move.piece = PieceType::QUEEN;
+                    game_move.target_square = cardinal_moves.trailing_zeros() as u8;
 
-                PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, false);
+                    PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
 
-                // Test underpromotions - these should be encoded in separate planes
-                if (game_move.target_square >= 56 && game_move.source_square >= 48 && game_move.source_square < 56)
-                    || (game_move.target_square <= 7 && game_move.source_square >= 8 && game_move.source_square < 16) {
+                    // Test underpromotions - these should be encoded into separate indices
+                    if (!flip_for_black && game_move.target_square >= 56 && game_move.source_square >= 48 && game_move.source_square < 56)
+                        || (flip_for_black && game_move.target_square <= 7 && game_move.source_square >= 8 && game_move.source_square < 16) {
 
-                    game_move.piece = PieceType::PAWN;
-                    for promotion_piece in [PieceType::KNIGHT, PieceType::BISHOP, PieceType::ROOK] {
-                        game_move.promotion_piece = promotion_piece;
-                        PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, false);
-                        game_move.promotion_piece = PieceType::NONE;
+                        game_move.piece = PieceType::PAWN;
+                        for promotion_piece in [PieceType::KNIGHT, PieceType::BISHOP, PieceType::ROOK] {
+                            game_move.promotion_piece = promotion_piece;
+                            PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
+                            game_move.promotion_piece = PieceType::NONE;
 
-                        target_count += 1;
+                            target_count += 1;
+                        }
                     }
+
+                    cardinal_moves &= cardinal_moves - 1;
                 }
 
-                cardinal_moves &= cardinal_moves - 1;
+                while knight_moves > 0 {
+                    game_move.piece = PieceType::KNIGHT;
+                    game_move.target_square = knight_moves.trailing_zeros() as u8;
+
+                    PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
+                    knight_moves &= knight_moves - 1;
+                }
+
+                target_count += QUEEN_ATTACKS[sq_ind].count_ones() + KNIGHT_ATTACKS[sq_ind].count_ones();
+
+                let mut current_count = 0u32;
+                for s in 0..movement_planes.len() {
+                    current_count += movement_planes[s] as u32;
+                }
+
+                println!("Square {}: {} total moves", sq_ind, target_count);
+
+                // Ensure each unique move for each unique square has a unique place in the output planes
+                assert_eq!(target_count, current_count);
             }
 
-            while knight_moves > 0 {
-                game_move.piece = PieceType::KNIGHT;
-                game_move.target_square = knight_moves.trailing_zeros() as u8;
-
-                PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, false);
-                knight_moves &= knight_moves - 1;
-            }
-
-            target_count += QUEEN_ATTACKS[sq_ind].count_ones() + KNIGHT_ATTACKS[sq_ind].count_ones();
-
-            let mut current_count = 0u32;
-            for s in 0..movement_planes.len() {
-                current_count += movement_planes[s] as u32;
-            }
-
-            // println!("Square {}: {} total moves", sq_ind, target_count);
-
-            // Ensure each unique move for each unique square has a unique place in the output planes
-            assert_eq!(target_count, current_count);
+            flip_for_black = !flip_for_black;
         }
     }
 
-    fn test_encode_movement_helper(piece: PieceType, source_square: u8, target_square: u8, promotion_piece: PieceType, flip_for_black: bool, expected_index: usize) {
-        let mut movement_planes = [0f32; NN_TOTAL_OUTPUT_PLANES << 6];
+    // // Checks that every source square x target square mapping as well as underpromotion moves
+    // // have unique encoding locations within the output vector (i.e. there are no collisions)
+    // // Turns out there are only 1858 possible moves from any source square to any valid target
+    // // square (including 3 additional moves for piece underpromotions on each target square)
+    // #[test]
+    // fn test_calc_movements_to_nn_output_map() {
+    //     let mut target_count = 0u16;
+    //     let mut movement_map = HashMap::<u16, u16>::with_capacity(2048);
+    //
+    //     for source_square in 0..64 {
+    //         let mut cardinal_moves = QUEEN_ATTACKS[source_square];
+    //         let mut knight_moves = KNIGHT_ATTACKS[source_square];
+    //
+    //         while cardinal_moves > 0 {
+    //             let target_square = cardinal_moves.trailing_zeros() as usize;
+    //
+    //             movement_map.insert(((source_square << 6) + target_square) as u16, target_count);
+    //             target_count += 1;
+    //
+    //             // Test underpromotions - these should be encoded in separate planes
+    //             // Only need to do this for the rank 7 to 8 promotions since the board will also be flipped
+    //             // vertically for black, meaning pawns will only be moving north on the board from the NN's perspective
+    //             if target_square >= 56 && source_square >= 48 && source_square < 56 {
+    //                 // || (game_move.target_square <= 7 && game_move.source_square >= 8 && game_move.source_square < 16) {
+    //                 for promotion_piece in [PieceType::KNIGHT, PieceType::BISHOP, PieceType::ROOK] {
+    //                     movement_map.insert(((((promotion_piece as u8) as usize) << 12) + (source_square << 6) + target_square) as u16, target_count);
+    //
+    //                     target_count += 1;
+    //                 }
+    //             }
+    //
+    //             cardinal_moves &= cardinal_moves - 1;
+    //         }
+    //
+    //         while knight_moves > 0 {
+    //             let target_square = knight_moves.trailing_zeros() as usize;
+    //
+    //             movement_map.insert(((source_square << 6) + target_square) as u16, target_count);
+    //             target_count += 1;
+    //
+    //             knight_moves &= knight_moves - 1;
+    //         }
+    //
+    //         println!("Square {}: {} total moves", source_square, target_count);
+    //     }
+    //
+    //     print!("\n[");
+    //     for key in movement_map.keys().sorted() {
+    //     //     // print!("({}, {}), ", key, movement_map[key]);
+    //         print!("({}, {}), ", movement_map[key], key);
+    //         // print!("{}, ", key);
+    //     }
+    //     println!("]");
+    //     // println!("{:?}", movement_map);
+    // }
+
+    fn test_encode_movement_helper(piece: PieceType, source_square: u8, target_square: u8, promotion_piece: PieceType, flip_for_black: bool, expected_index: u16) {
+        let mut movement_planes = [0f32; NN_TOTAL_OUTPUT_SIZE_PER_POS];
 
         PositionConverter::encode_movement(
             movement_planes.as_mut_ptr(),
@@ -446,49 +506,47 @@ mod tests {
             },
             flip_for_black
         );
-        assert_eq!(movement_planes[expected_index], 1f32);
+        assert_eq!(movement_planes[MOVEMENTS_TO_NN_OUTPUT_INDICES[&expected_index] as usize], 1f32);
     }
 
     #[test]
     fn test_encode_movement_output_plane_locations() {
         // Basic moves for white
-        test_encode_movement_helper(PieceType::QUEEN, 0, 0, PieceType::NONE, false, 0);
-        test_encode_movement_helper(PieceType::QUEEN, 0, 1, PieceType::NONE, false, 64);
-        test_encode_movement_helper(PieceType::QUEEN, 1, 1, PieceType::NONE, false, 65);
-        test_encode_movement_helper(PieceType::QUEEN, 37, 40, PieceType::NONE, false, 2597);
-        test_encode_movement_helper(PieceType::QUEEN, 63, 40, PieceType::NONE, false, 2623);
-        test_encode_movement_helper(PieceType::QUEEN, 63, 63, PieceType::NONE, false, 4095);
+        test_encode_movement_helper(PieceType::QUEEN, 0, 1, PieceType::NONE, false, 1);
+        test_encode_movement_helper(PieceType::QUEEN, 1, 0, PieceType::NONE, false, 64);
+        test_encode_movement_helper(PieceType::QUEEN, 37, 39, PieceType::NONE, false, 2407);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 36, PieceType::NONE, false, 4068);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 62, PieceType::NONE, false, 4094);
 
         // // Basic moves for black - the source square index should be flipped vertically
-        test_encode_movement_helper(PieceType::QUEEN, 0, 0, PieceType::NONE, true, 3640);
-        test_encode_movement_helper(PieceType::QUEEN, 0, 1, PieceType::NONE, true, 3704);
-        test_encode_movement_helper(PieceType::QUEEN, 1, 1, PieceType::NONE, true, 3705);
-        test_encode_movement_helper(PieceType::QUEEN, 37, 40, PieceType::NONE, true, 1053);
-        test_encode_movement_helper(PieceType::QUEEN, 63, 40, PieceType::NONE, true, 1031);
-        test_encode_movement_helper(PieceType::QUEEN, 63, 63, PieceType::NONE, true, 455);
+        test_encode_movement_helper(PieceType::QUEEN, 0, 1, PieceType::NONE, true, 3641);
+        test_encode_movement_helper(PieceType::QUEEN, 1, 0, PieceType::NONE, true, 3704);
+        test_encode_movement_helper(PieceType::QUEEN, 37, 39, PieceType::NONE, true, 1887);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 36, PieceType::NONE, true, 476);
+        test_encode_movement_helper(PieceType::QUEEN, 63, 62, PieceType::NONE, true, 454);
 
-        // Promotions for white - only underpromotions should be placed on the additional output planes
-        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::QUEEN, false, 3632);
-        // file diff -> 1, knight -> 0, so plane = 64 + (3 * 1) + 0 = 67
-        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::KNIGHT, false, 4336);
-        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::BISHOP, false, 4400);
-        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::ROOK, false, 4464);
-        // file diff -> 0, knight -> 0, so plane = 64 + (3 * 0) + 0 = 64
-        test_encode_movement_helper(PieceType::PAWN, 54, 61, PieceType::KNIGHT, false, 4150);
-        // file diff -> 2, rook -> 2, so plane = 64 + (3 * 2) + 2 = 72
-        test_encode_movement_helper(PieceType::PAWN, 54, 63, PieceType::ROOK, false, 4662);
+        // Promotions for white - only underpromotions should be encoded on the additional indices
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::QUEEN, false, 3128);
+        // knight -> 1 * 4096
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::KNIGHT, false, 7224);
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::BISHOP, false, 11320);
+        test_encode_movement_helper(PieceType::PAWN, 48, 56, PieceType::ROOK, false, 15416);
+        // knight -> 1 * 4096
+        test_encode_movement_helper(PieceType::PAWN, 54, 61, PieceType::KNIGHT, false, 7613);
+        // rook -> 3 * 4096
+        test_encode_movement_helper(PieceType::PAWN, 54, 63, PieceType::ROOK, false, 15807);
 
 
         // Promotions for black - only underpromotions should be placed on the additional output planes
-        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::QUEEN, true, 3632);
-        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::KNIGHT, true, 4336);
-        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::BISHOP, true, 4400);
-        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::ROOK, true, 4464);
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::QUEEN, true, 3128);
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::KNIGHT, true, 7224);
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::BISHOP, true, 11320);
+        test_encode_movement_helper(PieceType::PAWN, 8, 0, PieceType::ROOK, true, 15416);
 
-        // file diff -> 0, knight -> 0, so plane = 64 + (3 * 0) + 0 = 64
-        test_encode_movement_helper(PieceType::PAWN, 10, 1, PieceType::KNIGHT, true, 4146);
-        // file diff -> 2, rook -> 2, so plane = 64 + (3 * 2) + 2 = 72
-        test_encode_movement_helper(PieceType::PAWN, 10, 3, PieceType::ROOK, true, 4658);
+        // knight -> 1 * 4096
+        test_encode_movement_helper(PieceType::PAWN, 10, 1, PieceType::KNIGHT, true, 7353);
+        // rook -> 3 * 4096
+        test_encode_movement_helper(PieceType::PAWN, 10, 3, PieceType::ROOK, true, 15547);
     }
     
     #[test]
@@ -505,24 +563,24 @@ mod tests {
 
         // Position 0 (start of game 1):
         expected_input_checksums.insert(0, vec![8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1254902, 0.1254902, 0.0, 0.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0]);
-        expected_output_mask_checksums.insert(0,   vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        expected_output_target_checksums.insert(0, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_mask_checksums.insert(0,   vec![0.0, 2.0, 0.0, 0.0, 0.0, 2.0, 2.0, 2.0, 3.0, 3.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_target_checksums.insert(0, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
 
         // Position 9 (last move by black before game end - Bg6)
         expected_input_checksums.insert(9, vec![7.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 7.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 7.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 7.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 7.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 7.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 7.0, 1.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 7.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 32.0, 32.0, 0.627451, 0.627451, 0.2509804, 0.2509804, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0]);
-        expected_output_mask_checksums.insert(9,   vec![0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        expected_output_target_checksums.insert(9, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_mask_checksums.insert(9,   vec![0.0, 2.0, 8.0, 1.0, 0.0, 2.0, 2.0, 2.0, 0.0, 2.0, 1.0, 2.0, 2.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_target_checksums.insert(9, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
         // Position 10 - start of game 2
         expected_input_checksums.insert(10, vec![8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1254902, 0.1254902, 0.0, 0.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0, 32.0]);
-        expected_output_mask_checksums.insert(10,   vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        expected_output_target_checksums.insert(10, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_mask_checksums.insert(10,   vec![0.0, 2.0, 0.0, 0.0, 0.0, 2.0, 2.0, 2.0, 3.0, 3.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_target_checksums.insert(10, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
         // Position 19 - (last move by black before game end - c5)
         expected_input_checksums.insert(19, vec![8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 32.0, 32.0, 0.627451, 0.627451, 0.2509804, 0.2509804, 0.0, 0.0, 0.0, 0.0, 32.0, 32.0, 32.0, 32.0]);
-        expected_output_mask_checksums.insert(19,   vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        expected_output_target_checksums.insert(19, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_mask_checksums.insert(19,   vec![0.0, 2.0, 1.0, 1.0, 1.0, 0.0, 2.0, 2.0, 3.0, 3.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        expected_output_target_checksums.insert(19, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
 
         let mut pos_count = 0;

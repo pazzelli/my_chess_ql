@@ -13,7 +13,7 @@ pub struct GameMove {
     pub target_square: u8,
     pub promotion_piece: PieceType,
     pub is_capture: bool,
-    pub extended_move_san: ArrayString::<16>
+    pub extended_move_san: ArrayString<16>
 }
 
 impl Default for GameMove {
@@ -40,6 +40,25 @@ impl GameMove {
             PieceType::KING => 'K',
             _ => '?'
         }
+    }
+
+    /// Returns a UCI-formatted string for this movement, in the form <source_sq><target_sq><promotion_piece>
+    /// ex: "b1c3" or "a7a8q"
+    pub fn get_uci_move_string(&self) -> String {
+        let mut result = String::with_capacity(5);
+        result.push(PositionHelper::algebraic_file_from_index(self.source_square));
+        result.push(PositionHelper::algebraic_rank_from_index(self.source_square));
+        result.push(PositionHelper::algebraic_file_from_index(self.target_square));
+        result.push(PositionHelper::algebraic_rank_from_index(self.target_square));
+
+        match self.promotion_piece {
+            PieceType::QUEEN => result.push('q'),
+            PieceType::KNIGHT => result.push('n'),
+            PieceType::ROOK => result.push('r'),
+            PieceType::BISHOP => result.push('b'),
+            _ => ()
+        }
+        result
     }
 
     pub fn set_extended_san_move_string(&mut self) {
@@ -147,17 +166,7 @@ impl GameMove {
 
 impl Debug for GameMove {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        let mut result = vec![PositionHelper::algebraic_from_index(self.source_square), PositionHelper::algebraic_from_index(self.target_square)];
-        if self.promotion_piece != PieceType::NONE {
-            result.push(String::from(match self.promotion_piece {
-                PieceType::QUEEN => "q",
-                PieceType::KNIGHT => "n",
-                PieceType::ROOK => "r",
-                PieceType::BISHOP => "b",
-                _ => ""
-            }));
-        }
-        f.write_str(result.join("").as_str())
+        f.write_str(self.get_uci_move_string().as_str())
 
         // f.debug_struct("GameMove")
         //     .field("piece", &self.piece)

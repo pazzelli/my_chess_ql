@@ -7,16 +7,17 @@ use crate::game::position::*;
 use crate::constants::*;
 use crate::game::moves::gamemove::GameMove;
 use crate::game::moves::gamemovelist::GameMoveList;
+use crate::game::pieces::piece::Piece;
 use crate::game::positionhelper::PositionHelper;
 
-pub struct PositionConverter {
+pub struct NNPositionConverter {
     pub move_history_buffer_white: Vec<f32>,
     pub move_history_buffer_black: Vec<f32>,
 }
 
-impl PositionConverter {
+impl NNPositionConverter {
     pub fn new() -> Self {
-        PositionConverter {
+        NNPositionConverter {
             move_history_buffer_white: vec![0f32; NN_TOTAL_INPUT_SIZE_PER_POS],
             move_history_buffer_black: vec![0f32; NN_TOTAL_INPUT_SIZE_PER_POS]
         }
@@ -74,7 +75,7 @@ impl PositionConverter {
 
         // Each piece gets its own plane, with a 1 in an occupied space, 0 otherwise
         for i in 0..piece_bitboards.len() {
-            PositionConverter::encode_piece_positions(input_piece_planes, piece_bitboards[i], (i<<6) as isize, flip_for_black);
+            NNPositionConverter::encode_piece_positions(input_piece_planes, piece_bitboards[i], (i<<6) as isize, flip_for_black);
         }
     }
 
@@ -115,7 +116,7 @@ impl PositionConverter {
 
         // Each auxiliary value gets its own plane with the value simply repeated 64 times on that plane
         for i in 0..aux_values.len() {
-            PositionConverter::encode_aux_info(input_aux_planes, aux_values[i], (i<<6) as isize);
+            NNPositionConverter::encode_aux_info(input_aux_planes, aux_values[i], (i<<6) as isize);
         }
     }
 
@@ -160,12 +161,39 @@ impl PositionConverter {
         // movement_planes[((knight_movement_stride + movement_direction_stride + squares_moved) << 6) + game_move.source_square as usize] = 1;
     }
 
+    /// Decodes the neural net output vector index back to a source /target square on the board
+    /// The promotion piece / target square aren't needed since the source / target squares alone
+    /// are uniquely able to identify the GameMove object for the current position
+    /// WARNING: the promotion piece type returned as the 3rd tuple value will return NONE even
+    /// if this is a pawn promotion to a QUEEN (this is because a queen promotion and
+    /// a non-promotion move both encode the promotion_piece value as 0 for the neural net so it
+    /// is ambiguous in this function where the complete list of game moves is no longer available)
+    pub fn decode_movement(nn_output_index: u16, flip_for_black: bool) -> (u8, u8, PieceType) {
+        let flip_for_black = flip_for_black as u8;
+
+        let movement_index = NN_OUTPUT_INDICES_TO_MOVEMENTS[&nn_output_index];
+        let promotion_piece = match movement_index >> 12 {
+            1 => PieceType::KNIGHT,
+            2 => PieceType::BISHOP,
+            3 => PieceType::ROOK,
+            _ => PieceType::NONE
+        };
+        let source_square = ((movement_index >> 6) & 63) as u8;
+        let target_square = (movement_index & 63) as u8;
+
+        (
+            (flip_for_black * VERTICAL_FLIP_INDICES[source_square as usize]) + ((1 - flip_for_black) * source_square),
+            (flip_for_black * VERTICAL_FLIP_INDICES[target_square as usize]) + ((1 - flip_for_black) * target_square),
+            promotion_piece
+        )
+    }
+
     // Encodes all possible game moves for a given position into a set of output planes
     // This will be used to mask out invalid output values before re-normalizing to get the final movement probabilities
     fn encode_movement_output_planes_for_nn (output_move_mask_planes: *mut f32, possible_moves: &GameMoveList, flip_for_black: bool) {
         for i in 0..possible_moves.list_len {
             let game_move = &possible_moves.move_list[i];
-            PositionConverter::encode_movement(output_move_mask_planes, &game_move, flip_for_black);
+            NNPositionConverter::encode_movement(output_move_mask_planes, &game_move, flip_for_black);
         }
     }
 
@@ -193,8 +221,8 @@ impl PositionConverter {
                 );
 
                 // Convert the input piece data and auxiliary data into the start of the history buffer
-                PositionConverter::encode_piece_planes_for_nn(input_piece_planes, &position, flip_for_black);
-                PositionConverter::encode_aux_planes_for_nn(input_aux_planes, &position);
+                NNPositionConverter::encode_piece_planes_for_nn(input_piece_planes, &position, flip_for_black);
+                NNPositionConverter::encode_aux_planes_for_nn(input_aux_planes, &position);
                 flip_for_black = true;
             }
         }
@@ -210,7 +238,7 @@ impl PositionConverter {
             // Encode the position outputs directly into the target array, flipping for black if needed
             let output_move_mask_planes = output_mask_data.as_mut_ptr();
             // Create the output movement mask
-            PositionConverter::encode_movement_output_planes_for_nn(output_move_mask_planes, &possible_moves, !position.white_to_move);
+            NNPositionConverter::encode_movement_output_planes_for_nn(output_move_mask_planes, &possible_moves, !position.white_to_move);
         }
 
         (input_data, output_mask_data)
@@ -219,7 +247,7 @@ impl PositionConverter {
     // Converts a target move (for supervised learning) into the set of output planes for the neural network
     pub fn convert_target_move_for_nn (target_move: &GameMove, position: &Position) -> Vec<f32> {
         let mut target_output = vec![0f32; NN_TOTAL_OUTPUT_SIZE_PER_POS];
-        PositionConverter::encode_movement(target_output.as_mut_ptr(), &target_move, !position.white_to_move);
+        NNPositionConverter::encode_movement(target_output.as_mut_ptr(), &target_move, !position.white_to_move);
         target_output
     }
 }
@@ -308,27 +336,12 @@ mod tests {
     }
 
     fn print_nn_encoded_output(output_planes: &Vec<f32>, white_to_move: bool) {
-        // TODO: the logic below decodes the output from the NN and will need to be refactored out into its own helper
         println!("\nOutput plane contents (movements):");
 
         for i in 0..output_planes.len() {
             if output_planes[i] <= 0f32 { continue; }
 
-            let move_encoding = NN_OUTPUT_INDICES_TO_MOVEMENTS[&(i as u16)];
-            // println!("{}, {}", i, move_encoding);
-
-            let promotion_piece = match move_encoding >> 12 {
-                1 => PieceType::KNIGHT,
-                2 => PieceType::BISHOP,
-                3 => PieceType::ROOK,
-                _ => PieceType::NONE
-            };
-            let mut source_square = ((move_encoding >> 6) & 63) as u8;
-            let mut target_square = (move_encoding & 63) as u8;
-
-            source_square = if white_to_move { source_square } else {VERTICAL_FLIP_INDICES[source_square as usize] };
-            target_square = if white_to_move { target_square } else {VERTICAL_FLIP_INDICES[target_square as usize] };
-
+            let (source_square, target_square, promotion_piece) = NNPositionConverter::decode_movement(i as u16, !white_to_move);
             let mut game_move = GameMove {
                 piece: PieceType::NONE,
                 source_square,
@@ -350,7 +363,7 @@ mod tests {
         let mut move_list = GameMoveList::default();
         PositionAnalyzer::calc_legal_moves(&mut position, &mut move_list);
 
-        let mut nn_converter = PositionConverter::new();
+        let mut nn_converter = NNPositionConverter::new();
         let (input_planes, output_move_mask_planes) = nn_converter.convert_position_for_nn(&position, &mut move_list);
 
         // // Uncomment the next lines to see the input + output plane encodings in all their gory detail
@@ -391,7 +404,7 @@ mod tests {
                     game_move.piece = PieceType::QUEEN;
                     game_move.target_square = cardinal_moves.trailing_zeros() as u8;
 
-                    PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
+                    NNPositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
 
                     // Test underpromotions - these should be encoded into separate indices
                     if (!flip_for_black && game_move.target_square >= 56 && game_move.source_square >= 48 && game_move.source_square < 56)
@@ -400,7 +413,7 @@ mod tests {
                         game_move.piece = PieceType::PAWN;
                         for promotion_piece in [PieceType::KNIGHT, PieceType::BISHOP, PieceType::ROOK] {
                             game_move.promotion_piece = promotion_piece;
-                            PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
+                            NNPositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
                             game_move.promotion_piece = PieceType::NONE;
 
                             target_count += 1;
@@ -414,7 +427,7 @@ mod tests {
                     game_move.piece = PieceType::KNIGHT;
                     game_move.target_square = knight_moves.trailing_zeros() as u8;
 
-                    PositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
+                    NNPositionConverter::encode_movement(movement_planes.as_mut_ptr(), &game_move, flip_for_black);
                     knight_moves &= knight_moves - 1;
                 }
 
@@ -494,7 +507,7 @@ mod tests {
     fn test_encode_movement_helper(piece: PieceType, source_square: u8, target_square: u8, promotion_piece: PieceType, flip_for_black: bool, expected_index: u16) {
         let mut movement_planes = [0f32; NN_TOTAL_OUTPUT_SIZE_PER_POS];
 
-        PositionConverter::encode_movement(
+        NNPositionConverter::encode_movement(
             movement_planes.as_mut_ptr(),
             &GameMove {
                 piece,

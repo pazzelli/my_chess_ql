@@ -4,6 +4,8 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate clap;
+extern crate tensorflow;
+
 mod constants;
 mod engine;
 mod game;
@@ -33,7 +35,7 @@ use crate::game::pieces::king::King;
 use crate::test::legalmoveshelper::LegalMovesTestHelper;
 use crate::test::movemakertesthelper::MoveMakerTestHelper;
 
-
+/// Processes incoming commands from stdin indefinitely
 fn process_ui_commands(uci_interface: &mut uci::UCIInterface) {
     loop {
         let mut buffer = String::new();
@@ -48,6 +50,21 @@ fn process_ui_commands(uci_interface: &mut uci::UCIInterface) {
             Err(e) => println!("Error while reading from stdin: {}", e),
         }
     }
+}
+
+/// Returns the full path to the current TF model directory based on a relative input path
+fn get_nn_model_dir(model_dir: &str) -> PathBuf {
+    #[cfg(debug_assertions)]
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    // For release builds, assume the model is beneath the EXE's current folder
+    #[cfg(not(debug_assertions))]
+    let mut path = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
+
+    println!("{}", path.display());
+
+    path.push(model_dir);
+    path
 }
 
 fn main() {
@@ -86,6 +103,6 @@ fn main() {
     }
 
     // Default invocation - wait for input command line args from a chess UI program
-    let mut uci = uci::UCIInterface::init_interface();
+    let mut uci = uci::UCIInterface::init_interface(get_nn_model_dir("models"));
     process_ui_commands(&mut uci);
 }

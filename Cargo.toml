@@ -26,6 +26,8 @@ arrayvec = "0.7.2"
 clap = "2.34.0"
 float-cmp = "0.9.0"
 itertools = "0.10.3"
+tensorflow = "0.16.1"
+#tensorflow = { version = "0.16.1", default-features = false }
 #bitintr = "0.3.0"
 #rayon = "1.5.1"
 #core_simd = { git = "https://github.com/rust-lang/portable-simd" }

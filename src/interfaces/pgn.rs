@@ -28,7 +28,7 @@ pub struct PGNReader {
     move_maker: MoveMaker,
     white_min_elo: bool,
     black_min_elo: bool,
-    nn_converter: PositionConverter
+    nn_converter: NNPositionConverter
 }
 
 impl PGNReader {
@@ -54,7 +54,7 @@ impl PGNReader {
             move_maker: MoveMaker::default(),
             white_min_elo: false,
             black_min_elo: false,
-            nn_converter: PositionConverter::new()
+            nn_converter: NNPositionConverter::new()
         }
     }
 
@@ -253,7 +253,7 @@ impl PGNReader {
 
         // Return an encoded position for the neural network
         let (input_data, output_mask) = self.nn_converter.convert_position_for_nn(&self.pgn_game_position, &self.position_moves);
-        let output_target = PositionConverter::convert_target_move_for_nn(&self.pgn_next_move_played, &self.pgn_game_position);
+        let output_target = NNPositionConverter::convert_target_move_for_nn(&self.pgn_next_move_played, &self.pgn_game_position);
 
         return Some((input_data, output_mask, output_target, self.pgn_game_result, self.pgn_game_position.white_to_move, is_new_game))
     }

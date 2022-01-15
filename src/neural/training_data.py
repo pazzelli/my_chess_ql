@@ -4,10 +4,11 @@ import my_chess_ql
 import tensorflow as tf
 
 # Neural Net training parameters
-SHUFFLE_BUFFER_SIZE = 1000
+SHUFFLE_BUFFER_SIZE = 2000
 TRAIN_TEST_SPLIT = 0.8  # must contain a single decimal place only
-BATCH_SIZE = 500     # preferably in multiples of 10 so train/test split will produce expected results
+BATCH_SIZE = 2000     # preferably in multiples of 10 so train/test split will produce expected results
 EPOCHS = 10
+TOP_K_OUTPUTS = 8
 
 # Neural net structure parameters
 NN_PIECE_PLANES = 12    # 6 planes for each side's pieces

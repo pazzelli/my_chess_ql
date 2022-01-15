@@ -2,22 +2,36 @@ import os.path
 import datetime
 import argparse
 
-import keras
 import tensorflow as tf
+from tensorflow import keras
+from keras import Model
 import matplotlib.pyplot as plt
 
-from training_data import EPOCHS
-from neural.training_data import TrainingData
-from neural.training_model import TrainingModel, TransposeChannelsLastLayer
+from training_data import EPOCHS, TrainingData
+from training_model import TrainingModel, TransposeChannelsLastLayer, TopKLayer
 
 
-class Training():
+class Training:
+    @staticmethod
+    def load_model(model_path: str) -> Model:
+        if os.path.exists(os.path.join(model_path, 'saved_model.pb')):
+            model = keras.models.load_model(model_path, custom_objects={
+                'transpose_channels_last': TransposeChannelsLastLayer,
+                'top_k_outputs': TopKLayer,
+            })
+        else:
+            print("WARNING: NEW MODEL WILL BE TRAINED - no previous model found at {}".format(model_path))
+            model = TrainingModel.get_compiled_model()
+
+        print(model.summary())
+        return model
+
     @staticmethod
     def visualize_training_results(history):
-        movement_output_acc = history.history['movement_output_accuracy']
-        win_probablity_acc = history.history['win_probability_accuracy']
-        val_movement_output_acc = history.history['val_movement_output_accuracy']
-        val_win_probability_acc = history.history['val_win_probability_accuracy']
+        movement_output_acc = history.history['movement_output_categorical_accuracy']
+        win_probablity_acc = history.history['win_probability_mean_absolute_error']
+        val_movement_output_acc = history.history['val_movement_output_categorical_accuracy']
+        val_win_probability_acc = history.history['val_win_probability_mean_absolute_error']
 
         loss = history.history['loss']
         val_loss = history.history['val_loss']
@@ -45,7 +59,7 @@ class Training():
     @staticmethod
     def adjust_modeL_learning_rate(model):
         lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=0.02,
+            initial_learning_rate=0.08,
             decay_steps=1000,
             decay_rate=0.9
         )
@@ -55,16 +69,11 @@ class Training():
         # print(optimizer.learning_rate)
 
     @staticmethod
-    def run_training(pgn_path: str, model_path: str, tensorboard_log_dir="logs/fit"):
+    def run_training(pgn_path: str, model_path: str, tensorboard_log_dir="../../logs/fit"):
         # print(tf.config.list_physical_devices())
 
-        if os.path.exists(os.path.join(model_path, 'saved_model.pb')):
-            model = keras.models.load_model(model_path, custom_objects={'transpose_channels_last': TransposeChannelsLastLayer})
-        else:
-            print("WARNING: NEW MODEL WILL BE TRAINED - no previous model found at {}".format(model_path))
-            model = TrainingModel.get_compiled_model()
+        model = Training.load_model(model_path=model_path)
         Training.adjust_modeL_learning_rate(model)
-        print(model.summary())
 
         x, y, x_val, y_val = TrainingData.get_datasets(pgn_path)
 
@@ -80,16 +89,16 @@ class Training():
                 epochs=EPOCHS,
                 steps_per_epoch=10,
                 validation_data=tf.data.Dataset.zip((x_val, y_val)),
-                validation_steps=10,
+                validation_steps=5,
                 use_multiprocessing=True,
                 workers=3,
                 callbacks=[tensorboard_callback]
             )
         except (InterruptedError, KeyboardInterrupt):
             pass
-        finally:
-            print("\nSaving model to {}".format(model_path))
-            model.save(filepath=model_path, overwrite=True)
+
+        print("\nSaving model to {}".format(model_path))
+        model.save(filepath=model_path, overwrite=True)
 
         if history:
             Training.visualize_training_results(history)

@@ -8,6 +8,8 @@ pub const NN_TOTAL_PLANES_PER_POS: usize = NN_TOTAL_PIECE_PLANES_PER_POS + NN_AU
 
 pub const NN_TOTAL_INPUT_SIZE_PER_POS: usize = NN_TOTAL_PLANES_PER_POS << 6;
 
+pub const TOP_K_OUTPUTS: usize = 8;
+
 // These maps contain a mapping from all valid source/target squares (including special pawn
 // underpromotion moves) and uniquely maps them onto a linear space - with 1858 possible total unique
 // moves available

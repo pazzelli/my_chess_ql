@@ -7,7 +7,8 @@ from tensorflow import keras
 from keras import Model
 import matplotlib.pyplot as plt
 
-from training_data import EPOCHS, TrainingData
+from training_constants import *
+from training_data import TrainingData
 from training_model import TrainingModel, TransposeChannelsLastLayer, TopKLayer
 
 
@@ -35,9 +36,9 @@ class Training:
 
         loss = history.history['loss']
         val_loss = history.history['val_loss']
-        movement_output_loss = history.history['movement_output_loss']
+        movement_output_loss = history.history['output_raw_loss']
         win_probablity_loss = history.history['win_probability_loss']
-        val_movement_output_loss = history.history['val_movement_output_loss']
+        val_movement_output_loss = history.history['val_output_raw_loss']
         val_win_probability_loss = history.history['val_win_probability_loss']
 
         epochs_range = range(EPOCHS)
@@ -59,8 +60,8 @@ class Training:
     @staticmethod
     def adjust_modeL_learning_rate(model):
         lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=0.08,
-            decay_steps=1000,
+            initial_learning_rate=0.06,
+            decay_steps=20,
             decay_rate=0.9
         )
 

@@ -1,7 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
-
-from training_data import NN_TOTAL_INPUT_SIZE_PER_POS, NN_TOTAL_PLANES_PER_POS, NN_TOTAL_OUTPUT_SIZE_PER_POS, TOP_K_OUTPUTS
+from training_constants import *
 
 
 class TopKLayer(layers.Layer):
@@ -57,7 +56,7 @@ class TransposeChannelsLastLayer(layers.Layer):
 class TrainingModel:
     @staticmethod
     def get_uncompiled_model():
-        main_input = layers.Input(shape=NN_TOTAL_INPUT_SIZE_PER_POS, dtype='float32', name='main_input')
+        main_input = layers.Input(shape=NN_TOTAL_INPUT_SIZE_PER_POS, dtype='float32', name=INPUT_MAIN_LAYER_NAME)
         reshape = layers.Reshape((NN_TOTAL_PLANES_PER_POS, 8, 8))(main_input)
         move_channels_last = TransposeChannelsLastLayer()(reshape)
 
@@ -77,16 +76,16 @@ class TrainingModel:
 
         flatten = layers.Flatten()(dropout3)
         dense1 = layers.Dense(2048)(flatten)
-        main_output = layers.Dense(NN_TOTAL_OUTPUT_SIZE_PER_POS, name='output_raw')(dense1)
+        output_raw = layers.Dense(NN_TOTAL_OUTPUT_SIZE_PER_POS, name=OUTPUT_RAW_LAYER_NAME)(dense1)
 
-        main_output_mask = layers.Input(shape=(NN_TOTAL_OUTPUT_SIZE_PER_POS,), dtype='float32', name='output_mask')
-        multiply = layers.Multiply()([main_output, main_output_mask])
-        final_output = layers.Softmax(name='movement_output')(multiply)
-        top_k_outputs = TopKLayer(k=TOP_K_OUTPUTS, name='top_k_outputs')(final_output)
+        main_output_mask = layers.Input(shape=(NN_TOTAL_OUTPUT_SIZE_PER_POS,), dtype='float32', name=OUTPUT_MASK_LAYER_NAME)
+        multiply = layers.Multiply()([output_raw, main_output_mask])
+        movement_output = layers.Softmax(name=OUTPUT_MOVEMENTS_LAYER_NAME)(multiply)
+        top_k_movements = TopKLayer(k=TOP_K_OUTPUTS, name=OUTPUT_TOP_K_MOVEMENTS_LAYER_NAME)(movement_output)
 
-        win_probability_output = layers.Dense(1, name='win_probability', activation='sigmoid')(main_output)
+        win_probability_output = layers.Dense(1, name=OUTPUT_WIN_PROBABILITY_LAYER_NAME, activation='sigmoid')(output_raw)
 
-        model = models.Model([main_input, main_output_mask], [final_output, win_probability_output, top_k_outputs])
+        model = models.Model([main_input, main_output_mask], [output_raw, movement_output, top_k_movements, win_probability_output])
         return model
 
     @staticmethod
@@ -94,13 +93,14 @@ class TrainingModel:
         model = TrainingModel.get_uncompiled_model()
         model.compile(optimizer='adam',
                       loss={
-                          'movement_output': tf.keras.losses.CategoricalCrossentropy(),
-                          'win_probability': tf.keras.losses.MeanAbsoluteError(),
-                          # 'top_k_outputs': None,
+                          OUTPUT_RAW_LAYER_NAME: tf.keras.losses.CategoricalCrossentropy(),
+                          # OUTPUT_RAW_LAYER_NAME: tf.keras.losses.MeanAbsoluteError(),
+                          OUTPUT_WIN_PROBABILITY_LAYER_NAME: tf.keras.losses.MeanAbsoluteError(),
                       },
                       metrics={
-                          'movement_output': tf.keras.metrics.CategoricalAccuracy(),
-                          'win_probability': tf.keras.metrics.MeanAbsoluteError(),
+                          OUTPUT_RAW_LAYER_NAME: tf.keras.metrics.CategoricalAccuracy(),
+                          OUTPUT_MOVEMENTS_LAYER_NAME: tf.keras.metrics.CategoricalAccuracy(),
+                          OUTPUT_WIN_PROBABILITY_LAYER_NAME: tf.keras.metrics.MeanAbsoluteError(),
                       }
                       )
         return model

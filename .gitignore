@@ -2,3 +2,5 @@
 .idea
 /venv
 /logs/fit/
+/models
+/models_BAK

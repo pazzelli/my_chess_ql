@@ -59,10 +59,10 @@ class TrainingData:
         ds_validation = ds_validation.batch(val_batch_size)
 
         x = ds_train.map(lambda main_input, output_mask, t, t2, t3, t4: {INPUT_MAIN_LAYER_NAME: main_input, OUTPUT_MASK_LAYER_NAME: output_mask})
-        y = ds_train.map(lambda t, t2, output_target, win_result, t3, t4: {OUTPUT_RAW_LAYER_NAME: output_target, OUTPUT_MOVEMENTS_LAYER_NAME: output_target, OUTPUT_WIN_PROBABILITY_LAYER_NAME: win_result})
+        y = ds_train.map(lambda t, t2, output_target, win_result, t3, t4: {OUTPUT_MOVEMENTS_LAYER_NAME: output_target, OUTPUT_WIN_PROBABILITY_LAYER_NAME: win_result})
 
         x_val = ds_validation.map(lambda main_input, output_mask, t, t2, t3, t4: {INPUT_MAIN_LAYER_NAME: main_input, OUTPUT_MASK_LAYER_NAME: output_mask})
-        y_val = ds_validation.map(lambda t, t2, output_target, win_result, t3, t4: {OUTPUT_RAW_LAYER_NAME: output_target, OUTPUT_MOVEMENTS_LAYER_NAME: output_target, OUTPUT_WIN_PROBABILITY_LAYER_NAME: win_result})
+        y_val = ds_validation.map(lambda t, t2, output_target, win_result, t3, t4: {OUTPUT_MOVEMENTS_LAYER_NAME: output_target, OUTPUT_WIN_PROBABILITY_LAYER_NAME: win_result})
 
         return x.cache(), y.cache(), x_val, y_val
 

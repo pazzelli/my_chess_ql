@@ -56,17 +56,19 @@ impl NNPrediction {
 
         // Locate and return the top K gave moves and discard the rest
         let mut top_k_moves: [(Option<GameMove>, f32); TOP_K_OUTPUTS] = [(None, 0f32); TOP_K_OUTPUTS];
-        let max_ind = usize::min(TOP_K_OUTPUTS, move_list.list_len);
+        // pred.1 is the top move count returned by the NN
+        let max_ind = usize::min(usize::min(TOP_K_OUTPUTS, move_list.list_len), pred.1);
         for i in 0..max_ind {
+            // println!("{}, {}", pred.0[i].0, pred.0[i].1);
             top_k_moves[i] = (Some(move_list.move_list[pred.0[i].0 as usize]), pred.0[i].1)
         }
 
-        (top_k_moves, pred.1)
+        (top_k_moves, pred.2)
     }
 
     /// Converts the position and game moves into the necessary inputs for the NN, then invokes
     /// the TensorFlow graph to produce the actual outputs
-    fn make_prediction_from_nn(&mut self, position: &Position, game_move_list: &GameMoveList) -> Result<([(i16, f32); TOP_K_OUTPUTS], f32)> {
+    fn make_prediction_from_nn(&mut self, position: &Position, game_move_list: &GameMoveList) -> Result<([(i16, f32); TOP_K_OUTPUTS], usize, f32)> {
         // Sample usage / example, taken from:
         // https://github.com/tensorflow/rust/blob/master/examples/regression_savedmodel.rs
 
@@ -108,7 +110,7 @@ impl NNPrediction {
         // Grab the data out of the session using a fetch token
         // let movement_output_fetch = call_step.request_fetch(&op_movement_output, 0);
         let top_k_outputs_fetch = call_step.request_fetch(&op_top_k_outputs, 1);
-        let win_probability_fetch = call_step.request_fetch(&op_win_probability, 0);
+        let win_probability_fetch = call_step.request_fetch(&op_win_probability, 2);
 
         // Run the session / graph operations
         self.saved_model.session.run(&mut call_step)?;
@@ -121,15 +123,15 @@ impl NNPrediction {
         // println!("\nTop k outputs: {:?}", top_k_outputs.iter());
         // println!("\nwin probability: {:?}", win_probability);
 
-        let top_k_game_move_indices = NNPrediction::convert_nn_movements_to_game_move_indices(top_k_outputs, &game_move_list, !position.white_to_move);
-        Ok((top_k_game_move_indices, win_probability))
+        let (top_k_game_move_indices, top_moves_found) = NNPrediction::convert_nn_movements_to_game_move_indices(top_k_outputs, &game_move_list, !position.white_to_move);
+        Ok((top_k_game_move_indices, top_moves_found, win_probability))
     }
 
     /// Converts the index of the top K neural net output neurons (in the top_k_movements tensor)
     /// into an array of indices into the GameMoveList (to locate the appropriate GameMove) for each one
     /// The &GameMove objects themselves cannot be returned since they would then have different lifetimes
     /// than the GameMoveList that is passed in here
-    fn convert_nn_movements_to_game_move_indices(top_k_movements: Tensor<f32>, game_move_list: &GameMoveList, flip_for_black: bool) -> [(i16, f32); TOP_K_OUTPUTS] {
+    fn convert_nn_movements_to_game_move_indices(top_k_movements: Tensor<f32>, game_move_list: &GameMoveList, flip_for_black: bool) -> ([(i16, f32); TOP_K_OUTPUTS], usize) {
         let mut top_k_out = [(-1i16, 0f32); TOP_K_OUTPUTS];
 
         // Build a temporary map of source / target squares -> index in the top_k array
@@ -143,7 +145,7 @@ impl NNPrediction {
         }
 
         // Loop over game moves in a single pass
-        let mut moves_found = 0usize;
+        let mut top_moves_found = 0usize;
         for i in 0..game_move_list.move_list.len() {
             // If this game move's source square is in the map created above, it is in the top K moves
             let move_source_sq = game_move_list.move_list[i].source_square;
@@ -155,13 +157,13 @@ impl NNPrediction {
                 // The top_k_movements output by the NN has the softmax percentage / probability offset exactly K positions
                 // away from the movement index, since this tensor is a concatenation of the movement index + probabilities
                 top_k_out[top_k_array_ind] = (i as i16, top_k_movements[top_k_array_ind + TOP_K_OUTPUTS]);
-                moves_found += 1;
+                top_moves_found += 1;
 
-                if moves_found >= TOP_K_OUTPUTS { break; }
+                if top_moves_found >= TOP_K_OUTPUTS { break; }
             }
         }
 
-        top_k_out
+        (top_k_out, top_moves_found)
     }
 
     // ANOTHER METHOD CALLING PYTHON DIRECTLY FROM RUST, BUT THIS WILL BE DIFFICULT TO DEPLOY

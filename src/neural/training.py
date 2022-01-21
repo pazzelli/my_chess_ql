@@ -36,9 +36,9 @@ class Training:
 
         loss = history.history['loss']
         val_loss = history.history['val_loss']
-        movement_output_loss = history.history['output_raw_loss']
+        movement_output_loss = history.history['movement_output_loss']
         win_probablity_loss = history.history['win_probability_loss']
-        val_movement_output_loss = history.history['val_output_raw_loss']
+        val_movement_output_loss = history.history['val_movement_output_loss']
         val_win_probability_loss = history.history['val_win_probability_loss']
 
         epochs_range = range(EPOCHS)
@@ -60,9 +60,9 @@ class Training:
     @staticmethod
     def adjust_modeL_learning_rate(model):
         lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=0.06,
-            decay_steps=20,
-            decay_rate=0.9
+            initial_learning_rate=INITIAL_LEARNING_RATE,
+            decay_steps=LEARNING_RATE_DECAY_BATCH_COUNT,
+            decay_rate=LEARNING_RATE_DECAY_RATE
         )
 
         model.optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
@@ -88,7 +88,7 @@ class Training:
                 # batch_size=512,   # this isn't allowed here since the datasets themselves are already batched
                 # shuffle=False,    # not allowed here either since the datasets are also already shuffled
                 epochs=EPOCHS,
-                steps_per_epoch=10,
+                steps_per_epoch=BATCHES_PER_EPOCH,
                 validation_data=tf.data.Dataset.zip((x_val, y_val)),
                 validation_steps=5,
                 use_multiprocessing=True,

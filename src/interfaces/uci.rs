@@ -33,6 +33,9 @@ impl UCIInterface {
 
             "ucinewgame" => self.engine.init_new_game(),
 
+            // TODO: need to support the 'moves' command within 'position' to play the list of moves on the board
+            // from the position given in the FEN string:
+            //   * position [fen <fenstring> | startpos ]  moves <move1> .... <movei>
             "position" => {
                 match cmd_tokens[1] {
                     // "fen" => self.engine.init_position(Some(&cmd_tokens[2..].join(""))),
@@ -60,8 +63,9 @@ impl UCIInterface {
                     if best_moves[i].0.is_none() { break; }
 
                     // Send info about all K top moves to the UI using the 'info multipv' command
+                    // the 'time 1' is necessary here so ChessX doesn't ignore the line entirely
                     let game_move = best_moves[i].0.unwrap();
-                    UCIInterface::send_to_gui(format!("info multipv {} score cp {:.0?} depth 1 nodes 1 time 0 pv {:?}", (i+1), (best_moves[i].1) * multiplier * 100f32, game_move.get_uci_move_string()).as_str());
+                    UCIInterface::send_to_gui(format!("info multipv {} score cp {:.0?} depth 1 nodes 1 time 1 pv {}", (i+1), (best_moves[i].1) * multiplier * 100f32, game_move.get_uci_move_string()).as_str());
 
                     // Sample command:
                     // UCIInterface::send_to_gui("info score cp 153  depth 1 nodes 13 time 15 pv d2d4 d7d5");

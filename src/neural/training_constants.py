@@ -1,8 +1,19 @@
 # Neural Net training parameters
-SHUFFLE_BUFFER_SIZE = 200
-TRAIN_TEST_SPLIT = 0.8  # must contain a single decimal place only
-BATCH_SIZE = 200     # preferably in multiples of 10 so train/test split will produce expected results
-EPOCHS = 1
+# SHUFFLE_BUFFER_SIZE = 4000
+SHUFFLE_BUFFER_SIZE = 2000
+TRAIN_TEST_SPLIT = 0.9  # must contain a single decimal place only
+# BATCH_SIZE = 20     # preferably in multiples of 10 so train/test split will produce expected results
+BATCH_SIZE = 500     # preferably in multiples of 10 so train/test split will produce expected results
+# BATCHES_PER_EPOCH = 500
+BATCHES_PER_EPOCH = 200
+EPOCHS = 10
+
+INITIAL_LEARNING_RATE = 0.01
+LEARNING_RATE_DECAY_RATE = 0.9
+LEARNING_RATE_DECAY_BATCH_COUNT = 2000
+
+REGULARIZATION_PARAMETER = 0.0001
+
 TOP_K_OUTPUTS = 8
 
 # Neural net structure parameters

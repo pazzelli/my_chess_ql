@@ -10,6 +10,14 @@ pub const NN_TOTAL_INPUT_SIZE_PER_POS: usize = NN_TOTAL_PLANES_PER_POS << 6;
 
 pub const TOP_K_OUTPUTS: usize = 8;
 
+// NN model constants
+pub const INPUT_MAIN_LAYER_NAME: &str = "main_input";
+pub const OUTPUT_MASK_LAYER_NAME: &str = "output_mask";
+pub const OUTPUT_RAW_LAYER_NAME: &str = "output_raw";
+pub const OUTPUT_MOVEMENTS_LAYER_NAME: &str = "movement_output";
+pub const OUTPUT_TOP_K_MOVEMENTS_LAYER_NAME: &str = "top_k_outputs";
+pub const OUTPUT_WIN_PROBABILITY_LAYER_NAME: &str = "win_probability";
+
 // These maps contain a mapping from all valid source/target squares (including special pawn
 // underpromotion moves) and uniquely maps them onto a linear space - with 1858 possible total unique
 // moves available

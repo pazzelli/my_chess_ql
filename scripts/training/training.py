@@ -5,7 +5,7 @@ import argparse
 import tensorflow as tf
 from tensorflow import keras
 from keras import Model
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 from training_constants import *
 from training_data import TrainingData
@@ -29,33 +29,33 @@ class Training:
 
     @staticmethod
     def visualize_training_results(history):
-        movement_output_acc = history.history['movement_output_categorical_accuracy']
-        win_probablity_acc = history.history['win_probability_mean_absolute_error']
-        val_movement_output_acc = history.history['val_movement_output_categorical_accuracy']
-        val_win_probability_acc = history.history['val_win_probability_mean_absolute_error']
+        # movement_output_acc = history.history['movement_output_categorical_accuracy']
+        # win_probablity_acc = history.history['win_probability_mean_absolute_error']
+        # val_movement_output_acc = history.history['val_movement_output_categorical_accuracy']
+        # val_win_probability_acc = history.history['val_win_probability_mean_absolute_error']
+        #
+        # loss = history.history['loss']
+        # val_loss = history.history['val_loss']
+        # movement_output_loss = history.history['movement_output_loss']
+        # win_probablity_loss = history.history['win_probability_loss']
+        # val_movement_output_loss = history.history['val_movement_output_loss']
+        # val_win_probability_loss = history.history['val_win_probability_loss']
+        #
+        # epochs_range = range(EPOCHS)
 
-        loss = history.history['loss']
-        val_loss = history.history['val_loss']
-        movement_output_loss = history.history['movement_output_loss']
-        win_probablity_loss = history.history['win_probability_loss']
-        val_movement_output_loss = history.history['val_movement_output_loss']
-        val_win_probability_loss = history.history['val_win_probability_loss']
-
-        epochs_range = range(EPOCHS)
-
-        plt.figure(figsize=(8, 8))
-        plt.subplot(1, 2, 1)
-        plt.plot(epochs_range, movement_output_acc, label='Training Movement Accuracy')
-        plt.plot(epochs_range, val_movement_output_acc, label='Validation Movement Accuracy')
-        plt.legend(loc='lower right')
-        plt.title('Training and Validation Accuracy')
-
-        plt.subplot(1, 2, 2)
-        plt.plot(epochs_range, loss, label='Training Loss')
-        plt.plot(epochs_range, val_loss, label='Validation Loss')
-        plt.legend(loc='upper right')
-        plt.title('Training and Validation Loss')
-        plt.show()
+        # plt.figure(figsize=(8, 8))
+        # plt.subplot(1, 2, 1)
+        # plt.plot(epochs_range, movement_output_acc, label='Training Movement Accuracy')
+        # plt.plot(epochs_range, val_movement_output_acc, label='Validation Movement Accuracy')
+        # plt.legend(loc='lower right')
+        # plt.title('Training and Validation Accuracy')
+        #
+        # plt.subplot(1, 2, 2)
+        # plt.plot(epochs_range, loss, label='Training Loss')
+        # plt.plot(epochs_range, val_loss, label='Validation Loss')
+        # plt.legend(loc='upper right')
+        # plt.title('Training and Validation Loss')
+        # plt.show()
 
     @staticmethod
     def adjust_modeL_learning_rate(model):
@@ -70,7 +70,7 @@ class Training:
         # print(optimizer.learning_rate)
 
     @staticmethod
-    def run_training(pgn_path: str, model_path: str, tensorboard_log_dir="../../logs/fit"):
+    def run_training(pgn_path: str, model_path: str, tensorboard_log_dir: str):
         # print(tf.config.list_physical_devices())
 
         model = Training.load_model(model_path=model_path)
@@ -111,9 +111,11 @@ class Training:
                             help='a path containing Portable Game Notation (PGN) files to use for training')
         parser.add_argument('model_path', type=str,
                             help='a path to the folder of an existing model file (to resume from) or where to save existing results')
+        parser.add_argument('tb_log_path', type=str,
+                            help='a path to place tensorboard log files')
         args = parser.parse_args()
 
-        Training.run_training(args.pgn_path, args.model_path)
+        Training.run_training(args.pgn_path, args.model_path, args.tb_log_path)
 
 
 if __name__ == "__main__":

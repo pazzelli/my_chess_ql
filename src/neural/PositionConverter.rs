@@ -1,5 +1,3 @@
-use std::arch::x86_64::_mm256_floor_pd;
-use std::mem::size_of;
 use unroll::unroll_for_loops;
 use itertools::Itertools;
 

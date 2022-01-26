@@ -4,6 +4,8 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate clap;
+
+#[cfg(not(compile_training))]
 extern crate tensorflow;
 
 mod constants;

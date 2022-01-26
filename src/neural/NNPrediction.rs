@@ -4,7 +4,8 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use tensorflow::*;
+#[cfg(not(compile_training))]
+use tensorflow::{Graph, SavedModelBundle, SessionOptions, SessionRunArgs, Tensor, Status};
 
 use crate::constants::*;
 use crate::game::analysis::positionanalyzer::PositionAnalyzer;
@@ -13,7 +14,27 @@ use crate::game::moves::gamemovelist::GameMoveList;
 use crate::game::position::Position;
 use crate::neural::positionconverter::NNPositionConverter;
 
+// Create a dummy implementation of the NNPrediction class when compiling for training
+// This essentially eliminates the rust-tensorflow dependency at the code level
+#[cfg(compile_training)]
+pub struct NNPrediction {
+    // Dummy
+}
 
+#[cfg(compile_training)]
+impl NNPrediction {
+    pub fn init_from_saved_model(_model_dir: PathBuf) -> Result<NNPrediction, Status> {
+        Ok(NNPrediction{})
+    }
+
+    pub fn init_new_game(&mut self) { }
+
+    pub fn make_prediction(&mut self, _position: &mut Position) -> ([(Option<GameMove>, f32); TOP_K_OUTPUTS], f32) {
+        ([(None, 0f32); TOP_K_OUTPUTS], 0f32)
+    }
+}
+
+#[cfg(not(compile_training))]
 pub struct NNPrediction {
     graph: Graph,
     saved_model: SavedModelBundle,
@@ -21,9 +42,10 @@ pub struct NNPrediction {
     // predictor: Py<PyAny>
 }
 
+#[cfg(not(compile_training))]
 impl NNPrediction {
     /// Opens the specified saved model, import the graph and create the TF Session
-    pub fn init_from_saved_model(model_dir: PathBuf) -> Result<NNPrediction> {
+    pub fn init_from_saved_model(model_dir: PathBuf) -> Result<NNPrediction, Status> {
         if !model_dir.exists() {
             panic!("TensorFlow model not found: {}", model_dir.display());
         }
@@ -68,7 +90,7 @@ impl NNPrediction {
 
     /// Converts the position and game moves into the necessary inputs for the NN, then invokes
     /// the TensorFlow graph to produce the actual outputs
-    fn make_prediction_from_nn(&mut self, position: &Position, game_move_list: &GameMoveList) -> Result<([(i16, f32); TOP_K_OUTPUTS], usize, f32)> {
+    fn make_prediction_from_nn(&mut self, position: &Position, game_move_list: &GameMoveList) -> Result<([(i16, f32); TOP_K_OUTPUTS], usize, f32), Status> {
         // Sample usage / example, taken from:
         // https://github.com/tensorflow/rust/blob/master/examples/regression_savedmodel.rs
 
@@ -86,11 +108,11 @@ impl NNPrediction {
         // println!("{:?}", call_signature.outputs());
 
         // Retrieve the inputs & outputs
-        let main_input_info = call_signature.get_input("main_input").unwrap();
-        let output_mask_info = call_signature.get_input("output_mask").unwrap();
-        // let movement_output_info = call_signature.get_output("movement_output").unwrap();
-        let top_k_output_info = call_signature.get_output("top_k_outputs").unwrap();
-        let win_probability_info = call_signature.get_output("win_probability").unwrap();
+        let main_input_info = call_signature.get_input(INPUT_MAIN_LAYER_NAME).unwrap();
+        let output_mask_info = call_signature.get_input(OUTPUT_MASK_LAYER_NAME).unwrap();
+        // let movement_output_info = call_signature.get_output(OUTPUT_MOVEMENTS_LAYER_NAME).unwrap();
+        let top_k_output_info = call_signature.get_output(OUTPUT_TOP_K_MOVEMENTS_LAYER_NAME).unwrap();
+        let win_probability_info = call_signature.get_output(OUTPUT_WIN_PROBABILITY_LAYER_NAME).unwrap();
 
         // Retrieve the graph operations required to bind the inputs / outputs
         let op_main_inp = self.graph.operation_by_name_required(&main_input_info.name().name)?;
